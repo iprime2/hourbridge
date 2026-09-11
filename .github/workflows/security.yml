@@ -71,7 +71,7 @@ jobs:
       # SARIF still uploads so HIGH/other findings can appear in Security without
       # blocking every merge on noisy filesystem noise.
       - name: Run Trivy (fail on CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -82,7 +82,7 @@ jobs:
 
       - name: Run Trivy (SARIF for Code Scanning)
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
