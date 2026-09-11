@@ -64,11 +64,11 @@ npm run lint
 
 ## Packaging (Windows / macOS)
 
-electron-builder is configured in `package.json` under `"build"`. Artifacts land in `release/`.
+electron-builder is configured in `package.json` under `"build"`. Artifacts land in `release/`. All `dist*` / `pack` scripts pass `--publish never` so packaging never uploads to GitHub — CI publishes via `softprops/action-gh-release` instead.
 
 ```bash
 # Install deps first, then:
-npm run dist          # build + package for current platform
+npm run dist          # build + package for current platform (--publish never)
 npm run pack          # build unpacked dir only (faster check)
 npm run dist:win      # Windows NSIS + portable (run on Windows / CI)
 npm run dist:mac      # macOS DMG for x64 + arm64 (run on macOS / CI)
@@ -102,40 +102,33 @@ On pull requests to `main` (and pushes to `main`), `.github/workflows/security.y
 | `osv_scan` | Google OSV Scanner against `package-lock.json` (fails on known vulnerable deps) |
 | `trivy_scan` | Trivy filesystem scan (`vuln` + `secret` + `misconfig`); **fails on CRITICAL** vulns; uploads HIGH+CRITICAL SARIF to GitHub Code Scanning |
 
-### Releases (merge to main + version tags)
+### Releases (auto-semver on merge to main)
 
-The release workflow (`.github/workflows/release.yml`) runs on:
+Merging a PR into `main` **automatically** bumps the app version and publishes a **full** GitHub Release (not a prerelease). Each release includes the main app **and** the desktop widget in every installer/DMG.
 
-1. **Push / merge to `main`** — publishes a **prerelease** with a unique tag so every merge gets a GitHub Release without colliding with prior ones
-2. **Push of a `v*` tag** — publishes using that tag (stable when the tag is pure semver `vX.Y.Z`)
+#### How it works
 
-Pipeline shape (unchanged): `quality` → `package` (Windows + macOS matrix) → single `publish` job (no concurrent upload race; release runs are also serialized).
+1. **Merge / push to `main`** (excluding `chore(release):` commits) → `version` job runs `npm version` (default **patch**), commits `chore(release): X.Y.Z`, tags `vX.Y.Z`, and pushes to `main` with `--follow-tags`.
+2. **`quality` → `package` → `publish`** run against that tag: tests, Win/mac packaging with `--publish never`, then `softprops/action-gh-release` creates the Release with installers attached (`generate_release_notes: true`, `make_latest: true`).
+3. The follow-up `chore(release):` push is **skipped** (loop guard) so the bump commit does not start another release.
 
-#### Tag / prerelease scheme
+#### Controlling the bump
 
-| Trigger | Tag name | Prerelease? | Release name |
-| --- | --- | --- | --- |
-| Merge / push to `main` | `v{package.json-version}-build.{github.run_number}` | **yes** | Includes short commit SHA in the name/body |
-| Tag `vX.Y.Z` (semver only) | The pushed tag | **no** (full release) | Same as the tag |
-| Other `v*` tags (e.g. with a suffix) | The pushed tag | yes | Same as the tag |
+| Commit / merge message contains | Semver bump |
+| --- | --- |
+| (default — no keyword) | **patch** (`0.1.0` → `0.1.1`) |
+| `bump:minor` | minor (`0.1.0` → `0.2.0`) |
+| `bump:major` | major (`0.1.0` → `1.0.0`) |
 
-Installer filenames still come from `package.json` `version` via electron-builder (e.g. `WorldTimeBuddy-0.1.0-…`). Main-branch prereleases keep unique **GitHub Release tags** even when that package version is unchanged.
+Put `bump:minor` or `bump:major` in the **merge commit message** (or the tip commit on `main`) when you need more than a patch.
 
-**Stable release flow** (from a clean `main` with the desired version already in `package.json`):
+#### Manual `v*` tags
 
-```bash
-# Option A — bump package.json version and create an annotated tag
-npm version patch   # or minor / major — updates package.json and creates vX.Y.Z
-git push origin main --follow-tags
+Pushing a `vX.Y.Z` tag still works for force/retag edge cases: the workflow skips the version bump and packages/publishes that tag. Tags created by the auto `chore(release):` commit are not packaged again (avoids a double release after `--follow-tags`).
 
-# Option B — tag the current package.json version without bumping
-git tag v0.1.0
-git push origin v0.1.0
-```
+#### Release assets
 
-Merging a PR to `main` alone is enough for a downloadable prerelease build; push a pure `vX.Y.Z` tag when you want a non-prerelease GitHub Release.
-
-After the workflow finishes, open the GitHub Release for that tag. Expected assets:
+After the workflow finishes, open the GitHub Release for `vX.Y.Z`. Expected assets:
 
 | Asset | Platform |
 | --- | --- |
