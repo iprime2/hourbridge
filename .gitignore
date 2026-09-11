@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+release/
+*.local
+
+# Electron
+*.asar
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Test / coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
