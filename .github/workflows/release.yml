@@ -16,11 +16,100 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  quality:
+  # Bump semver on main merges. Skipped for chore(release) commits (loop guard)
+  # and for tag pushes (manual / follow-tags events).
+  version:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      !startsWith(github.event.head_commit.message, 'chore(release):')
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and push tag
+        id: bump
+        run: |
+          set -euo pipefail
+          MSG="${{ github.event.head_commit.message }}"
+          if echo "${MSG}" | grep -qiE '(^|[[:space:]])bump:major([[:space:]]|$)'; then
+            BUMP=major
+          elif echo "${MSG}" | grep -qiE '(^|[[:space:]])bump:minor([[:space:]]|$)'; then
+            BUMP=minor
+          else
+            BUMP=patch
+          fi
+          echo "Bumping with npm version ${BUMP}"
+          npm version "${BUMP}" -m "chore(release): %s"
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="v${VERSION}"
+          git push origin "HEAD:main" --follow-tags
+          {
+            echo "version=${VERSION}"
+            echo "tag=${TAG}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Created ${TAG} (${VERSION})"
+
+  quality:
+    needs: version
+    # Main path: after successful bump. Tag path: manual v* tags only (skip
+    # chore(release) tags so --follow-tags does not double-package).
+    if: >-
+      always() && (
+        needs.version.result == 'success' ||
+        (
+          needs.version.result == 'skipped' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+          !startsWith(github.event.head_commit.message, 'chore(release):')
+        )
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve release ref
+        id: resolve
+        run: |
+          set -euo pipefail
+          if [[ "${{ needs.version.result }}" == "success" ]]; then
+            TAG="${{ needs.version.outputs.tag }}"
+            VERSION="${{ needs.version.outputs.version }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          fi
+          {
+            echo "tag=${TAG}"
+            echo "version=${VERSION}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Using tag=${TAG} version=${VERSION}"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,8 +141,10 @@ jobs:
             platform: mac
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
+      - name: Checkout release tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.quality.outputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -80,7 +171,7 @@ jobs:
         if: matrix.platform == 'win'
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installers
+          name: windows-installers-${{ needs.quality.outputs.version }}
           path: |
             release/WorldTimeBuddy-*-Setup.exe
             release/WorldTimeBuddy-*-portable.exe
@@ -90,59 +181,24 @@ jobs:
         if: matrix.platform == 'mac'
         uses: actions/upload-artifact@v4
         with:
-          name: macos-dmgs
+          name: macos-dmgs-${{ needs.quality.outputs.version }}
           path: release/WorldTimeBuddy-*.dmg
           if-no-files-found: error
 
   publish:
-    needs: package
+    needs: [quality, package]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve release metadata
-        id: meta
-        run: |
-          set -euo pipefail
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            # Pure semver tags (vX.Y.Z, no -build / prerelease suffix) are full releases.
-            if [[ "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              PRERELEASE=false
-            else
-              PRERELEASE=true
-            fi
-            NAME="${TAG}"
-            BODY="Stable release from tag \`${TAG}\` (commit \`${SHORT_SHA}\`)."
-          else
-            VERSION="$(node -p "require('./package.json').version")"
-            TAG="v${VERSION}-build.${{ github.run_number }}"
-            PRERELEASE=true
-            NAME="v${VERSION}-build.${{ github.run_number }} (${SHORT_SHA})"
-            BODY="Main-branch prerelease from \`package.json\` version \`${VERSION}\`, run #${{ github.run_number }}, commit \`${SHORT_SHA}\`."
-          fi
-          {
-            echo "tag=${TAG}"
-            echo "name=${NAME}"
-            echo "prerelease=${PRERELEASE}"
-            echo "body<<EOF"
-            echo "${BODY}"
-            echo "EOF"
-          } >> "${GITHUB_OUTPUT}"
-          echo "Resolved tag=${TAG} name=${NAME} prerelease=${PRERELEASE}"
-
       - name: Download Windows installers
         uses: actions/download-artifact@v4
         with:
-          name: windows-installers
+          name: windows-installers-${{ needs.quality.outputs.version }}
           path: dist-assets
 
       - name: Download macOS DMGs
         uses: actions/download-artifact@v4
         with:
-          name: macos-dmgs
+          name: macos-dmgs-${{ needs.quality.outputs.version }}
           path: dist-assets
 
       - name: List release assets
@@ -151,10 +207,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: ${{ steps.meta.outputs.name }}
-          body: ${{ steps.meta.outputs.body }}
-          prerelease: ${{ steps.meta.outputs.prerelease }}
+          tag_name: ${{ needs.quality.outputs.tag }}
+          name: ${{ needs.quality.outputs.tag }}
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
           files: dist-assets/*
           fail_on_unmatched_files: true
