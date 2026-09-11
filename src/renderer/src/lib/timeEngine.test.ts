@@ -162,6 +162,58 @@ describe('formatTime', () => {
     expect(formatTime(13, 30, '12h')).toBe('1:30 PM')
     expect(formatTime(9, 5, '12h')).toBe('9:05 AM')
   })
+
+  it('throws on invalid hour or minute', () => {
+    expect(() => formatTime(24, 0, '24h')).toThrow(/hour must be an integer 0–23/)
+    expect(() => formatTime(-1, 0, '12h')).toThrow(/hour must be an integer 0–23/)
+    expect(() => formatTime(10, 60, '24h')).toThrow(/minute must be an integer 0–59/)
+    expect(() => formatTime(10.5, 0, '24h')).toThrow(/hour must be an integer 0–23/)
+  })
+})
+
+describe('compareHomeHourAcrossZones edge cases', () => {
+  it('returns empty locals for an empty zone list', () => {
+    const result = compareHomeHourAcrossZones({ ...SUMMER_DATE, hour: 12 }, [])
+    expect(result.locals).toEqual([])
+    expect(result.instant.isValid).toBe(true)
+  })
+
+  it('stays coherent across the US DST spring-forward boundary', () => {
+    // 2024-03-10: US clocks spring forward 02:00 → 03:00 local.
+    // Same IST wall clock before vs after should remain one absolute instant each,
+    // and Miami local hour shifts by +1 once EDT is in effect.
+    const before = compareHomeHourAcrossZones(
+      { year: 2024, month: 3, day: 9, hour: 12, minute: 0 },
+      [ZONES.ist, ZONES.miami]
+    )
+    const after = compareHomeHourAcrossZones(
+      { year: 2024, month: 3, day: 11, hour: 12, minute: 0 },
+      [ZONES.ist, ZONES.miami]
+    )
+
+    for (const result of [before, after]) {
+      const ms = result.instant.toMillis()
+      for (const local of result.locals) {
+        expect(
+          DateTime.fromObject(
+            {
+              year: local.year,
+              month: local.month,
+              day: local.day,
+              hour: local.hour,
+              minute: local.minute
+            },
+            { zone: local.zone }
+          ).toMillis()
+        ).toBe(ms)
+      }
+    }
+
+    const miamiBefore = before.locals.find((l) => l.zone === ZONES.miami)!
+    const miamiAfter = after.locals.find((l) => l.zone === ZONES.miami)!
+    expect(miamiBefore).toMatchObject({ hour: 1, minute: 30 })
+    expect(miamiAfter).toMatchObject({ hour: 2, minute: 30 })
+  })
 })
 
 describe('classifyDayNight', () => {
@@ -176,5 +228,10 @@ describe('classifyDayNight', () => {
     for (const h of [6, 12, 18, 21]) {
       expect(classifyDayNight(h)).toBe('day')
     }
+  })
+
+  it('throws on out-of-range hours', () => {
+    expect(() => classifyDayNight(24)).toThrow(/hour must be an integer 0–23/)
+    expect(() => classifyDayNight(-1)).toThrow(/hour must be an integer 0–23/)
   })
 })

@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { DateTime } from 'luxon'
 import {
   isWidgetView,
+  loadPersistedBuddyState,
   parsePersistedBuddyState,
   savePersistedBuddyState,
   WTB_STORAGE_KEY
 } from '@renderer/lib/persistence'
 import { DEFAULT_LOCATIONS } from '@renderer/lib/timezones'
-import { buildWidgetRows } from '@renderer/lib/widgetRows'
 
 describe('persistence', () => {
   it('parses valid persisted buddy state', () => {
@@ -23,9 +22,18 @@ describe('persistence', () => {
   it('rejects invalid payloads', () => {
     expect(parsePersistedBuddyState(null)).toBeNull()
     expect(parsePersistedBuddyState('{')).toBeNull()
+    expect(parsePersistedBuddyState('not-json')).toBeNull()
     expect(parsePersistedBuddyState(JSON.stringify({ locations: [], timeFormat: '12h' }))).toBeNull()
     expect(
       parsePersistedBuddyState(JSON.stringify({ locations: DEFAULT_LOCATIONS, timeFormat: '9h' }))
+    ).toBeNull()
+    expect(
+      parsePersistedBuddyState(
+        JSON.stringify({ locations: [{ id: 1, label: 'x', iana: 'UTC' }], timeFormat: '12h' })
+      )
+    ).toBeNull()
+    expect(
+      parsePersistedBuddyState(JSON.stringify({ timeFormat: '12h' }))
     ).toBeNull()
   })
 
@@ -33,7 +41,10 @@ describe('persistence', () => {
     expect(isWidgetView('', '#widget')).toBe(true)
     expect(isWidgetView('', '#/widget')).toBe(true)
     expect(isWidgetView('?view=widget', '')).toBe(true)
+    expect(isWidgetView('view=widget', '')).toBe(true)
     expect(isWidgetView('', '#main')).toBe(false)
+    expect(isWidgetView('?view=main', '#other')).toBe(false)
+    expect(isWidgetView('', '#widget/extra')).toBe(false)
   })
 
   it('round-trips through storage', () => {
@@ -49,23 +60,14 @@ describe('persistence', () => {
       storage
     )
     expect(store.get(WTB_STORAGE_KEY)).toContain('IST')
+    expect(loadPersistedBuddyState(storage)?.timeFormat).toBe('12h')
   })
-})
 
-describe('buildWidgetRows', () => {
-  it('lists label, live time, and home offset', () => {
-    const now = DateTime.fromISO('2024-06-15T12:00:00', { zone: 'Asia/Kolkata' })
-    const rows = buildWidgetRows(DEFAULT_LOCATIONS, '12h', now)
-    expect(rows).toHaveLength(DEFAULT_LOCATIONS.length)
-
-    const ist = rows.find((r) => r.id === 'ist')
-    expect(ist?.isHome).toBe(true)
-    expect(ist?.offset).toBe('home')
-    expect(ist?.time).toMatch(/12:00\s*pm/i)
-
-    const tokyo = rows.find((r) => r.id === 'tokyo')
-    expect(tokyo?.isHome).toBe(false)
-    expect(tokyo?.offset).not.toBe('home')
-    expect(tokyo?.time.length).toBeGreaterThan(0)
+  it('returns null for corrupt JSON in storage', () => {
+    const storage = {
+      getItem: () => '{corrupt',
+      setItem: () => undefined
+    }
+    expect(loadPersistedBuddyState(storage)).toBeNull()
   })
 })

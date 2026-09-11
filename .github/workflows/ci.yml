@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   build:
+    name: Test & build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
