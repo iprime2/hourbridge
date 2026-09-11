@@ -65,6 +65,24 @@ describe('App World Time Buddy UI', () => {
     expect(screen.getByRole('button', { name: /switch to 12-hour format/i })).toBeInTheDocument()
   })
 
+  it('shifts the comparison date via the date strip', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const dateGroup = screen.getByRole('group', { name: /comparison date/i })
+    const selectedBefore = within(dateGroup).getByRole('button', { pressed: true })
+    const labelBefore = selectedBefore.getAttribute('aria-label')
+
+    await user.click(within(dateGroup).getByRole('button', { name: /next day/i }))
+
+    const selectedAfter = within(dateGroup).getByRole('button', { pressed: true })
+    expect(selectedAfter.getAttribute('aria-label')).not.toBe(labelBefore)
+
+    await user.click(within(dateGroup).getByRole('button', { name: /go to today/i }))
+    const selectedToday = within(dateGroup).getByRole('button', { pressed: true })
+    expect(selectedToday.classList.contains('is-today')).toBe(true)
+  })
+
   it('can add a location from the curated list', async () => {
     const user = userEvent.setup()
     render(<App />)
