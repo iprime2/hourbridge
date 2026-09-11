@@ -1,0 +1,104 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  osv_scan:
+    name: OSV Scanner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Scans package-lock.json via the official Google action.
+      # Fails the job when known vulnerable dependencies are reported.
+      # Lockfile-only scans are preferred here for speed/stability; if a
+      # transitive advisory is noisy, pin/override in package.json rather than
+      # weakening the gate.
+      - name: Scan lockfile with OSV
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+
+  trivy_scan:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Fail the PR/merge gate only on CRITICAL vulnerability findings.
+      # SARIF still uploads so HIGH/other findings can appear in Security without
+      # blocking every merge on noisy filesystem noise.
+      - name: Run Trivy (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL
+          exit-code: "1"
+          format: table
+
+      - name: Run Trivy (SARIF for Code Scanning)
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          format: sarif
+          output: trivy-results.sarif
+          limit-severities-for-sarif: true
+
+      # Private repos without GitHub Advanced Security / Code Scanning may reject SARIF.
+      # Keep the CRITICAL gate above; do not fail the workflow solely on upload.
+      - name: Upload Trivy SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs

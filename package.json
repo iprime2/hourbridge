@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "World Time Buddy — desktop timezone conversion app",
   "main": "./out/main/index.js",
-  "author": "",
+  "author": "World Time Buddy",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
@@ -14,8 +14,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "lint": "npm run typecheck",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac --x64 --arm64"
   },
+
   "dependencies": {
     "luxon": "^3.7.2",
     "react": "^19.0.0",
@@ -47,16 +50,25 @@
     "files": [
       "out/**/*"
     ],
+    "artifactName": "WorldTimeBuddy-${version}-${os}-${arch}.${ext}",
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
+    },
+    "nsis": {
+      "artifactName": "WorldTimeBuddy-${version}-win-${arch}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "WorldTimeBuddy-${version}-win-${arch}-portable.${ext}"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "identity": null
     }
   }
 }
