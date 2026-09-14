@@ -64,13 +64,14 @@ npm run lint
 
 ## Packaging (Windows / macOS)
 
-electron-builder is configured in `package.json` under `"build"`. Artifacts land in `release/`. All `dist*` / `pack` scripts pass `--publish never` so packaging never uploads to GitHub — CI publishes via `softprops/action-gh-release` instead.
+electron-builder is configured in `electron-builder.cjs` (not `package.json`). Artifacts land in `release/`. All `dist*` / `pack` scripts pass `--publish never` so packaging never uploads to GitHub — CI publishes via `softprops/action-gh-release` instead.
 
 ```bash
 # Install deps first, then:
 npm run dist          # build + package for current platform (--publish never)
 npm run pack          # build unpacked dir only (faster check)
 npm run dist:win      # Windows NSIS + portable (run on Windows / CI)
+npm run dist:win:store # Windows Store AppX only (run on Windows / CI)
 npm run dist:mac      # macOS DMG for x64 + arm64 (run on macOS / CI)
 ```
 
@@ -78,8 +79,60 @@ Cross-platform notes:
 
 - Package **Windows** installers on Windows (or with CI `windows-latest`).
 - Package **macOS** `.dmg` on macOS (CI `macos-latest`).
-- Targets: Windows `nsis` + `portable`, macOS `dmg` (see `package.json` → `build`).
+- Targets: Windows `nsis` + `portable` for GitHub Releases; Store uses separate `appx` via `dist:win:store`. macOS `dmg` (see `electron-builder.cjs`).
 - Each package includes the main window **and** the widget window — there is no separate widget installer.
+
+## Microsoft Store
+
+Microsoft Store packaging uses electron-builder’s **AppX** target (`appx`). In electron-builder **26.15.3**, a dedicated MSIX target is not available in app-builder-lib — use AppX (the Store accepts AppX and re-signs on submission). A dedicated MSIX target can be adopted later if electron-builder adds it.
+
+### Partner Center setup
+
+1. Create a [Microsoft Partner Center](https://partner.microsoft.com/) developer account (there is typically a one-time registration fee for individual/company accounts — confirm current pricing on Microsoft’s site).
+2. Reserve the app name **World Time Buddy**.
+3. Open the app’s **Product identity** / package identity page and copy:
+   - **Package/Identity/Name** → `WIN_STORE_IDENTITY_NAME` (e.g. `YourPublisher.WorldTimeBuddy`)
+   - **Publisher** (`CN=...`) → `WIN_STORE_PUBLISHER`
+   - **Publisher display name** → `WIN_STORE_PUBLISHER_DISPLAY_NAME`
+4. Optionally set `WIN_STORE_APPLICATION_ID` and `WIN_STORE_DISPLAY_NAME`.
+
+Identity defaults in `electron-builder.cjs` are safe placeholders for local/CI artifact builds (`YourPublisher.WorldTimeBuddy`, `CN=ms`, etc.). Replace them (via env vars or by editing the config) **before** Store submission so they match Partner Center exactly.
+
+Optional GitHub Actions secrets with the same names override placeholders on the Windows release job.
+
+### Build the Store package (Windows only)
+
+AppX packaging requires the **Windows** SDK / runner (CI uses `windows-latest`). It is not supported on Linux.
+
+```bash
+# Optional: set Partner Center identity (otherwise placeholders are used)
+export WIN_STORE_IDENTITY_NAME="YourPublisher.WorldTimeBuddy"
+export WIN_STORE_PUBLISHER="CN=Your Certificate Subject"
+export WIN_STORE_PUBLISHER_DISPLAY_NAME="Your Publisher"
+
+npm run dist:win:store
+```
+
+Output: `release/WorldTimeBuddy-<version>-win-store.appx` (and `.appxupload` if produced).
+
+Tile logos live under `build/appx/` (`StoreLogo`, `Square44x44Logo`, `Square150x150Logo`, `Wide310x150Logo`). Regenerate solid-color placeholders with `npm run generate:appx-assets`, or replace those PNGs with branded Store assets.
+
+Electron apps need the `runFullTrust` capability; electron-builder includes it for AppX (also set explicitly in config).
+
+### Submit to Partner Center
+
+1. Upload the `.appx` (or Partner Center package) in Partner Center.
+2. The Store **re-signs** the package on submission — Store installs should not show SmartScreen “Unknown publisher”.
+3. Complete Store listing, age ratings, and certification.
+
+### Signing note (GitHub vs Store)
+
+| Channel | Package | Signing |
+| --- | --- | --- |
+| GitHub Releases | NSIS `Setup.exe` + portable `.exe` | **Unsigned** unless you add an Authenticode certificate (`CSC_LINK` / `WIN_CSC_LINK`) |
+| Microsoft Store | AppX | Store re-signs after submission |
+
+Do not commit Partner Center secrets or `.pfx` files.
 
 ## CI / CD
 
@@ -134,6 +187,7 @@ After the workflow finishes, open the GitHub Release for `vX.Y.Z`. Expected asse
 | --- | --- |
 | `WorldTimeBuddy-X.Y.Z-win-x64-Setup.exe` | Windows NSIS installer (includes app + widget) |
 | `WorldTimeBuddy-X.Y.Z-win-x64-portable.exe` | Windows portable (includes app + widget) |
+| `WorldTimeBuddy-X.Y.Z-win-store.appx` | Windows Store AppX (Partner Center upload; placeholders unless Store secrets set) |
 | `WorldTimeBuddy-X.Y.Z-mac-x64.dmg` | macOS Intel (includes app + widget) |
 | `WorldTimeBuddy-X.Y.Z-mac-arm64.dmg` | macOS Apple Silicon (includes app + widget) |
 

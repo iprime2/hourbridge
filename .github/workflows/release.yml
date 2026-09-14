@@ -155,9 +155,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Windows installer
+      - name: Build Windows installer (NSIS + portable)
         if: matrix.platform == 'win'
         run: npm run dist:win
+
+      # Always build AppX with config placeholders (or optional repo secrets) so
+      # Partners can download a Store package. Replace identity before submission.
+      # AppX requires Windows SDK — windows-latest only (macOS job unchanged).
+      - name: Build Windows Store AppX
+        if: matrix.platform == 'win'
+        env:
+          WIN_STORE_IDENTITY_NAME: ${{ secrets.WIN_STORE_IDENTITY_NAME }}
+          WIN_STORE_PUBLISHER: ${{ secrets.WIN_STORE_PUBLISHER }}
+          WIN_STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.WIN_STORE_PUBLISHER_DISPLAY_NAME }}
+          WIN_STORE_APPLICATION_ID: ${{ secrets.WIN_STORE_APPLICATION_ID }}
+          WIN_STORE_DISPLAY_NAME: ${{ secrets.WIN_STORE_DISPLAY_NAME }}
+        run: npm run dist:win:store
 
       - name: Build macOS DMG (unsigned)
         if: matrix.platform == 'mac'
@@ -175,6 +188,9 @@ jobs:
           path: |
             release/WorldTimeBuddy-*-Setup.exe
             release/WorldTimeBuddy-*-portable.exe
+            release/WorldTimeBuddy-*-win-store.appx
+            release/WorldTimeBuddy-*-win-store.appxupload
+          # .appxupload is optional (not always produced); require at least Setup/portable/appx.
           if-no-files-found: error
 
       - name: Upload macOS artifacts

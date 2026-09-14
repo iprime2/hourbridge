@@ -16,7 +16,9 @@
     "pack": "npm run build && electron-builder --dir --publish never",
     "dist": "npm run build && electron-builder --publish never",
     "dist:win": "npm run build && electron-builder --win --publish never",
-    "dist:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never"
+    "dist:win:store": "npm run build && electron-builder --win appx --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never",
+    "generate:appx-assets": "node scripts/generate-appx-assets.mjs"
   },
   "dependencies": {
     "luxon": "^3.7.2",
@@ -39,36 +41,6 @@
     "typescript": "^5.7.3",
     "vite": "^6.0.0",
     "vitest": "^5.0.0"
-  },
-  "build": {
-    "appId": "com.worldtimebuddy.app",
-    "productName": "World Time Buddy",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "out/**/*"
-    ],
-    "artifactName": "WorldTimeBuddy-${version}-${os}-${arch}.${ext}",
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ]
-    },
-    "nsis": {
-      "artifactName": "WorldTimeBuddy-${version}-win-${arch}-Setup.${ext}"
-    },
-    "portable": {
-      "artifactName": "WorldTimeBuddy-${version}-win-${arch}-portable.${ext}"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.productivity",
-      "identity": null
-    }
   },
   "overrides": {
     "tar": "^7.5.19"
