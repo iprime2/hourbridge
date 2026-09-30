@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WidgetApp from '@renderer/components/WidgetApp'
-import { savePersistedBuddyState, WTB_STORAGE_KEY } from '@renderer/lib/persistence'
-import { DEFAULT_LOCATIONS } from '@renderer/lib/timezones'
+import { savePersistedBuddyState, WTB_STORAGE_KEY } from '@core/persistence'
+import { DEFAULT_LOCATIONS } from '@core/timezones'
 
 describe('WidgetApp', () => {
   beforeEach(() => {

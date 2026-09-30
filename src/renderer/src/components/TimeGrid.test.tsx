@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DateTime } from 'luxon'
 import TimeGrid from '@renderer/components/TimeGrid'
-import { DEFAULT_LOCATIONS } from '@renderer/lib/timezones'
+import { DEFAULT_LOCATIONS } from '@core/timezones'
 
 describe('TimeGrid', () => {
   const selectedDate = { year: 2024, month: 7, day: 15 }

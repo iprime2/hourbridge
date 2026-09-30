@@ -1,81 +1,90 @@
-import type { CityOption } from '@renderer/lib/cityOptions'
-import { filterCityOptions } from '@renderer/lib/cityOptions'
-import { useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { DateTime } from 'luxon'
+import CityPicker from '@ui/CityPicker'
+import { modKeyLabel } from '@ui/browser'
+import type { CityOption } from '@core/cityOptions'
+import type { TimeFormat } from '@core/timeEngine'
 
 interface AddLocationProps {
   excludeIds: ReadonlySet<string>
+  existingZones?: ReadonlySet<string>
+  timeFormat?: TimeFormat
+  now?: DateTime
   onAdd: (city: CityOption) => void
+  /** Controlled open state (lets ⌘K open it). Uncontrolled when omitted. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export default function AddLocation({ excludeIds, onAdd }: AddLocationProps) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
+export default function AddLocation({
+  excludeIds,
+  existingZones,
+  timeFormat = '12h',
+  now,
+  onAdd,
+  open: openProp,
+  onOpenChange
+}: AddLocationProps) {
+  const [openInternal, setOpenInternal] = useState(false)
+  const open = openProp ?? openInternal
+  const setOpen = onOpenChange ?? setOpenInternal
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
 
-  const results = useMemo(
-    () => filterCityOptions(query, excludeIds).slice(0, 12),
-    [query, excludeIds]
-  )
+  // Return focus to the trigger after the dialog closes.
+  useEffect(() => {
+    if (wasOpen.current && !open) triggerRef.current?.focus()
+    wasOpen.current = open
+  }, [open])
 
-  function handleAdd(city: CityOption) {
+  function handleAdd(city: CityOption): void {
     onAdd(city)
-    setQuery('')
     setOpen(false)
   }
 
   return (
     <div className="add-location">
-      {!open ? (
-        <button
-          type="button"
-          className="btn btn-primary"
-          aria-label="Add location"
-          onClick={() => setOpen(true)}
+      <button
+        ref={triggerRef}
+        type="button"
+        className="btn btn-primary"
+        aria-label="Add location"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        + Add location <kbd className="kbd">{modKeyLabel()}K</kbd>
+      </button>
+
+      {open ? (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOpen(false)
+          }}
         >
-          + Add location
-        </button>
-      ) : (
-        <div className="add-location-panel" role="dialog" aria-label="Add a location">
-          <input
-            type="search"
-            className="add-location-input"
-            placeholder="Search cities…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search cities"
-            autoFocus
-          />
-          <ul className="add-location-results" role="listbox" aria-label="Matching cities">
-            {results.length === 0 ? (
-              <li className="add-location-empty">No matching cities</li>
-            ) : (
-              results.map((city) => (
-                <li key={city.id}>
-                  <button
-                    type="button"
-                    className="add-location-option"
-                    role="option"
-                    onClick={() => handleAdd(city)}
-                  >
-                    <span className="add-location-label">{city.label}</span>
-                    <span className="add-location-zone">{city.iana}</span>
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            aria-label="Cancel add location"
-            onClick={() => {
-              setOpen(false)
-              setQuery('')
-            }}
-          >
-            Cancel
-          </button>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="Add a location">
+            <CityPicker
+              excludeIds={excludeIds}
+              existingZones={existingZones}
+              timeFormat={timeFormat}
+              now={now ?? DateTime.now()}
+              onPick={handleAdd}
+              onEscape={() => setOpen(false)}
+            />
+            <div className="modal-footer">
+              <span className="modal-hint">↑↓ to navigate · Enter to add · Esc to close</span>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                aria-label="Close dialog"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

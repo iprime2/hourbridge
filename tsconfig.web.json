@@ -5,6 +5,15 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
+      "@core/*": [
+        "src/core/*"
+      ],
+      "@ui/*": [
+        "src/ui/*"
+      ],
+      "@mobile/*": [
+        "src/mobile/*"
+      ],
       "@renderer/*": [
         "src/renderer/src/*"
       ]
@@ -16,6 +25,9 @@
     ]
   },
   "include": [
+    "src/core/**/*",
+    "src/ui/**/*",
+    "src/mobile/**/*",
     "src/renderer/src/**/*"
   ]
 }

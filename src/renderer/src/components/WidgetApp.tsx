@@ -1,39 +1,24 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { DateTime } from 'luxon'
 import {
-  loadPersistedBuddyState,
+  loadResolvedBuddyState,
   WTB_STORAGE_KEY,
-  type PersistedBuddyState
-} from '@renderer/lib/persistence'
-import { DEFAULT_LOCATIONS } from '@renderer/lib/timezones'
-import type { TimeFormat } from '@renderer/lib/timeEngine'
-import { buildWidgetRows } from '@renderer/lib/widgetRows'
-
-const TICK_MS = 1000
-
-function readState(): PersistedBuddyState {
-  return (
-    loadPersistedBuddyState() ?? {
-      locations: DEFAULT_LOCATIONS.map((l) => ({ ...l })),
-      timeFormat: '12h' as TimeFormat
-    }
-  )
-}
+  type ResolvedBuddyState
+} from '@core/persistence'
+import { useTheme } from '@core/theme'
+import { useNow } from '@core/useNow'
+import { buildWidgetRows } from '@core/widgetRows'
 
 export default function WidgetApp() {
-  const [buddy, setBuddy] = useState<PersistedBuddyState>(() => readState())
-  const [now, setNow] = useState(() => DateTime.now())
+  const [buddy, setBuddy] = useState<ResolvedBuddyState>(() => loadResolvedBuddyState())
+  const now = useNow('minute')
   const [alwaysOnTop, setAlwaysOnTop] = useState(true)
+  useTheme(buddy.theme)
 
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(DateTime.now()), TICK_MS)
-    return () => window.clearInterval(id)
-  }, [])
-
+  // The main window writes to localStorage; other windows receive a `storage` event.
   useEffect(() => {
     const onStorage = (event: StorageEvent): void => {
       if (event.key !== WTB_STORAGE_KEY) return
-      setBuddy(readState())
+      setBuddy(loadResolvedBuddyState())
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
@@ -49,7 +34,7 @@ export default function WidgetApp() {
     }
   }, [])
 
-  const rows = buildWidgetRows(buddy.locations, buddy.timeFormat, now)
+  const rows = buildWidgetRows(buddy.locations, buddy.timeFormat, now, buddy.workHours)
   const dragStyle = { WebkitAppRegion: 'drag' } as CSSProperties
   const noDragStyle = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
@@ -81,7 +66,7 @@ export default function WidgetApp() {
           </button>
           <button
             type="button"
-            className="btn btn-tiny btn-danger"
+            className="btn btn-tiny"
             aria-label="Close widget"
             onClick={() => void window.wtb?.closeWidget?.()}
           >
@@ -97,14 +82,15 @@ export default function WidgetApp() {
             className={['widget-row', row.isHome ? 'is-home' : ''].filter(Boolean).join(' ')}
             aria-label={`${row.label} ${row.time}`}
           >
-            <span className="widget-offset" title="Offset vs home">
-              {row.offset}
-            </span>
+            <span className={`phase-dot is-${row.phase}`} aria-hidden="true" />
             <span className="widget-label">
-              {row.label}
-              {row.isHome ? <span className="home-badge">HOME</span> : null}
+              <span className="widget-name">{row.label}</span>
+              <span className="widget-sub tabular">
+                {row.offset}
+                {row.otherDay ? ` · ${row.weekday}` : ''}
+              </span>
             </span>
-            <span className="widget-time">{row.time}</span>
+            <span className="widget-time tabular">{row.time}</span>
           </li>
         ))}
       </ul>

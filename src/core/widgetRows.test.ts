@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
-import { buildWidgetRows } from '@renderer/lib/widgetRows'
-import { DEFAULT_LOCATIONS, type Location } from '@renderer/lib/timezones'
+import { buildWidgetRows } from '@core/widgetRows'
+import { DEFAULT_LOCATIONS, type Location } from '@core/timezones'
 
 describe('buildWidgetRows', () => {
   const now = DateTime.fromISO('2024-06-15T12:00:00', { zone: 'Asia/Kolkata' })
@@ -50,5 +50,52 @@ describe('buildWidgetRows', () => {
     // offsetForLocation only returns "home" when location.isHome is set
     expect(rows[0].offset).toBe('home')
     expect(rows[1].isHome).toBe(false)
+  })
+})
+
+
+describe('buildWidgetRows — can you reach them right now?', () => {
+  const home = { id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true }
+  const cities = [
+    home,
+    { id: 'london', label: 'London', iana: 'Europe/London' },
+    { id: 'miami', label: 'Miami', iana: 'America/New_York' },
+    { id: 'tokyo', label: 'Tokyo', iana: 'Asia/Tokyo' }
+  ]
+  const phases = (iso: string) =>
+    Object.fromEntries(
+      buildWidgetRows(cities, '12h', DateTime.fromISO(iso, { zone: 'Asia/Kolkata' }), {
+        start: 9,
+        end: 17
+      }).map((r) => [r.id, r.phase])
+    )
+
+  it('is "work" for everyone who is awake while you are in your working hours', () => {
+    // Mon 15:00 IST = London 09:30, Tokyo 18:30 (awake) and Miami 04:30 (asleep).
+    expect(phases('2024-01-15T15:00:00')).toEqual({
+      ist: 'work',
+      london: 'work',
+      miami: 'night',
+      tokyo: 'work'
+    })
+  })
+
+  it('is "awake" once you are outside your hours, and still "night" for sleepers', () => {
+    // Mon 20:00 IST = London 14:30, Miami 09:30, Tokyo 23:30 (asleep).
+    expect(phases('2024-01-15T20:00:00')).toEqual({
+      ist: 'awake',
+      london: 'awake',
+      miami: 'awake',
+      tokyo: 'night'
+    })
+  })
+
+  it('never shows "work" on a weekend', () => {
+    expect(Object.values(phases('2024-01-20T15:00:00'))).not.toContain('work')
+  })
+
+  it('includes the end hour: 17:59 is still your working time', () => {
+    expect(phases('2024-01-15T17:59:00').ist).toBe('work')
+    expect(phases('2024-01-15T18:00:00').ist).toBe('awake')
   })
 })

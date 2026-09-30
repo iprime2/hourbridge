@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
-import { DEFAULT_LOCATIONS, HOME_TIMEZONE, getHomeLocation } from '@renderer/lib/timezones'
+import { DEFAULT_LOCATIONS, HOME_TIMEZONE, getHomeLocation } from '@core/timezones'
 import {
   buildDayTimeline,
   classifyDayNight,
@@ -9,7 +9,7 @@ import {
   getLocalWallTime,
   getOffsetHoursRelativeToHome,
   instantFromHomeDateTime
-} from '@renderer/lib/timeEngine'
+} from '@core/timeEngine'
 
 /** Fixed summer date in IST (Miami on EDT). */
 const SUMMER_DATE = { year: 2024, month: 7, day: 15 }
@@ -233,5 +233,18 @@ describe('classifyDayNight', () => {
   it('throws on out-of-range hours', () => {
     expect(() => classifyDayNight(24)).toThrow(/hour must be an integer 0–23/)
     expect(() => classifyDayNight(-1)).toThrow(/hour must be an integer 0–23/)
+  })
+})
+
+describe('timeline weekday', () => {
+  it('exposes the ISO weekday of each cell in its own zone', () => {
+    // Mon 2024-01-15 in IST; at IST 03:00 New York is still Sunday.
+    const cols = buildDayTimeline({ year: 2024, month: 1, day: 15 }, ['Asia/Kolkata', 'Pacific/Auckland', 'America/New_York'], 'Asia/Kolkata')
+    expect(cols[3].cells['Asia/Kolkata'].weekday).toBe(1)
+    expect(cols[3].cells['Pacific/Auckland'].weekday).toBe(1)
+    // Auckland (NZDT, UTC+13) reaches midnight at IST 16:30, so column 16 is Mon 23:30, 17 is Tue 00:30.
+    expect(cols[16].cells['Pacific/Auckland'].weekday).toBe(1)
+    expect(cols[17].cells['Pacific/Auckland'].weekday).toBe(2)
+    expect(cols[3].cells['America/New_York'].weekday).toBe(7)
   })
 })

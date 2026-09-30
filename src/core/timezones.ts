@@ -30,7 +30,10 @@ export const DEFAULT_LOCATIONS: readonly Location[] = [
 export function getHomeLocation(
   locations: readonly Location[] = DEFAULT_LOCATIONS
 ): Location {
-  const home = locations.find((l) => l.isHome) ?? locations.find((l) => l.iana === HOME_TIMEZONE)
+  const home =
+    locations.find((l) => l.isHome) ??
+    locations.find((l) => l.iana === HOME_TIMEZONE) ??
+    locations[0]
   if (!home) {
     throw new Error('No home location found')
   }

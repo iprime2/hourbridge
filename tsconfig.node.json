@@ -9,6 +9,8 @@
   },
   "include": [
     "electron.vite.config.ts",
+    "vite.mobile.config.ts",
+    "capacitor.config.ts",
     "src/main/**/*",
     "src/preload/**/*"
   ]
