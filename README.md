@@ -2,10 +2,11 @@
 
 Timezone planner inspired by [worldtimebuddy.com](https://www.worldtimebuddy.com/). Line up any number of cities, see at a glance who is awake or at work, pick a meeting time, and share it.
 
-Runs on **macOS**, **Windows** and **iOS** from one TypeScript codebase.
+Runs in **any modern browser** (installable, works offline) and as native apps on **macOS**, **Windows** and **iOS** — all from one TypeScript codebase. The web app is the easiest way to use it: nothing to download, nothing to sign, free to host (see [Web app](#web-app)).
 
 | Platform | Shell | Package |
 | --- | --- | --- |
+| Web (any browser, phone or desktop) | Static site + service worker | Deploy `dist-web/` to any static host — [Vercel](#deploy-on-vercel-free) config included |
 | macOS (Apple Silicon + Intel) | Electron | `.dmg`, `.zip` |
 | Windows | Electron | NSIS installer, portable `.exe`, Store `.appx` (once Partner Center secrets are set) |
 | iOS / iPadOS 15+ | Capacitor (WKWebView) | Xcode project in `ios/` → TestFlight / App Store |
@@ -30,6 +31,7 @@ Runs on **macOS**, **Windows** and **iOS** from one TypeScript codebase.
 **Everywhere**
 
 - Light / dark / system themes with checked WCAG-AA contrast; 12 / 24-hour clock; state persisted and versioned.
+- **Web:** installable from the browser (Chrome/Edge/Android: *Install*; iPhone/iPad: *Share → Add to Home Screen*), works fully offline after the first visit, and picks the desktop grid or the touch layout to suit the screen.
 - Desktop: `⌘K` / `Ctrl+K` to add a city, `T` today, `[` `]` change day, arrows / `Shift`+arrows to move / resize the selection.
 - Compact always-on-top **desktop widget** with live times and work/night indicators.
 
@@ -47,10 +49,12 @@ src/core/       Platform-free TypeScript: time engine, planner, DST, share/ICS, 
 src/ui/         Shared React components + design tokens (CityPicker, SettingsPanel, PlannerBar, tokens.css)
 src/renderer/   Electron UI (main window + widget)
 src/mobile/     iOS UI (touch-first) and the Capacitor adapter (native.ts)
+src/web/        Web shell: picks the desktop or touch UI, install prompt, service worker, manifest
 src/main/       Electron main process (windows, menu, menu-bar clock, IPC validation)
 src/preload/    Electron preload: the only bridge between renderer and main
 ios/            Capacitor-generated Xcode project (Swift Package Manager)
-scripts/        Brand/icon generator (no dependencies)
+scripts/        Brand/icon generator (no dependencies) and the service-worker build step
+vercel.json     Hosting config for the web app (headers, CSP, build)
 .claude/skills/ Engineering playbook for this repo (architecture rules, checklists)
 ```
 
@@ -74,6 +78,7 @@ npm install
 ```bash
 npm run dev          # Electron + Vite with HMR
 npm run dev:mobile   # the iOS UI in a browser at http://localhost:5174 (use device emulation)
+npm run dev:web      # the web app at http://localhost:5175 (desktop grid ≥ 900 px wide, touch UI below)
 npm test             # Vitest
 npm run lint         # TypeScript typecheck (web + node projects)
 ```
@@ -89,6 +94,8 @@ Click **Widget** in the toolbar (or *View → Show Widget*, `⇧⌘W`). It shows
 ```bash
 npm run build          # desktop bundles → out/
 npm run build:mobile   # iOS web layer → dist-mobile/
+npm run build:web      # the website → dist-web/ (also stamps the service worker's cache list)
+npm run preview:web    # serve dist-web/ at http://localhost:4175 to try the installed/offline behaviour
 ```
 
 ## Packaging
@@ -115,9 +122,34 @@ npm run generate:icons
 
 Writes `build/icon.png`, `build/icon-mac.png` (inset for the macOS icon grid), the Windows Store tiles in `build/appx/`, the App Store icon (1024², **no alpha**, as Apple requires) and light/dark launch images in `ios/`. Keep the mark in sync with `src/ui/Logo.tsx`.
 
+## Web app
+
+The same planner as a website and installable app (PWA). There is one build, `dist-web/`, and one page:
+
+- On a wide screen with a mouse or trackpad (`min-width: 900px` and `pointer: fine`) it shows the **desktop grid**; on phones and touch-first tablets it shows the **touch layout**. Resizing the window switches live and keeps your cities and settings.
+- It is **offline-first**: a service worker caches the whole site on the first visit. Each deploy gets its own cache (named by a hash of every file), the new version installs in the background and takes over the next time the app is opened — an open tab is never swapped mid-use — and the old cache is deleted.
+- **Installable**: Chromium browsers offer an *Install* button (the app shows its own prompt, remembered for 30 days if dismissed); iOS Safari has no install API, so the app explains *Share → Add to Home Screen*.
+- Nothing leaves the device: there is no backend, no analytics and no third-party requests. Your cities and settings live in the browser's local storage.
+- Browser differences: there is no desktop widget or menu-bar clock (they need Electron); **Share** uses the browser's share sheet when it has one (with the `.ics` attached where supported) and otherwise copies the details to the clipboard.
+
+### Deploy on Vercel (free)
+
+`vercel.json` already contains everything Vercel needs.
+
+1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New… → Project** → import `iprime2/world-time-buddy` (Vercel can read private repositories you grant it).
+2. Leave every setting as detected — the install command, `npm run build:web` and the `dist-web` output folder come from `vercel.json`. No environment variables are needed.
+3. **Deploy.** Every push to `main` then redeploys production, and every pull request gets its own preview URL.
+
+Things to know:
+
+- **Free tier terms:** Vercel's Hobby plan is free but restricted to personal, non-commercial use. If the site earns money or is run for a business, use another host or the Pro plan.
+- **Any static host works** (Netlify, Cloudflare Pages, GitHub Pages, S3…): run `npm run build:web` and serve `dist-web/`. The build uses relative URLs, so it also works under a sub-path such as `https://user.github.io/world-time-buddy/`. Copy the headers from `vercel.json` if the host lets you set them: a strict Content-Security-Policy (no third-party scripts, styles, fonts or connections), `nosniff`, no framing, no referrer, and `Cache-Control: no-cache` on `sw.js` so updates are noticed.
+- **`ELECTRON_SKIP_BINARY_DOWNLOAD=1`** in the install command stops the build from downloading Electron's ~100 MB binary, which a website build never runs.
+- **Name:** [worldtimebuddy.com](https://www.worldtimebuddy.com/) is an existing product. Before you publish under a public domain, pick a distinct name (the displayed name is in `src/web/public/manifest.webmanifest`, `src/web/index.html` and the app header).
+
 ## macOS signing & notarization
 
-Builds are **unsigned by default** so CI needs no Apple secrets; macOS Gatekeeper will ask users to right-click → **Open** the first time. `electron-builder.cjs` switches on signing automatically when credentials are present:
+Builds are **unsigned by default** so CI needs no Apple secrets, and macOS Gatekeeper blocks freshly downloaded unsigned apps ([#7](https://github.com/iprime2/world-time-buddy/issues/7)). Signing and notarizing needs a paid Apple Developer Program membership; until then, use the [web app](#web-app) or follow *First launch on macOS* below. `electron-builder.cjs` switches on signing automatically when credentials are present:
 
 | Env var / repo secret | Purpose |
 | --- | --- |
@@ -128,6 +160,24 @@ Builds are **unsigned by default** so CI needs no Apple secrets; macOS Gatekeepe
 | `APPLE_TEAM_ID` | Team ID — its presence also enables notarization |
 
 With `CSC_LINK` set the app is signed with the hardened runtime and `build/entitlements.mac.plist` (only the JIT/executable-memory exceptions Electron's V8 needs). With `APPLE_TEAM_ID` too, it is notarized. Never commit certificates; `.gitignore` blocks `*.p12`, `*.cer`, `*.mobileprovision` and `AuthKey_*.p8`.
+
+### First launch on macOS (unsigned builds)
+
+Downloaded builds show *"Apple could not verify 'World Time Buddy' is free of malware…"* with only **Done** / **Move to Bin**. That is Gatekeeper reacting to the missing signature, not a broken app. To open it once:
+
+**macOS 15 Sequoia and later** (the Control-click → Open shortcut was removed):
+
+1. Open the app, then click **Done** (not *Move to Bin*).
+2. Go to **System Settings → Privacy & Security** and scroll to *Security*.
+3. Next to *"World Time Buddy" was blocked…*, click **Open Anyway**, authenticate, then **Open**.
+
+Or, from Terminal (removes the download quarantine flag):
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/World Time Buddy.app"
+```
+
+**macOS 14 and earlier:** Control-click the app → **Open** → **Open**.
 
 Not included yet: auto-update. It needs a signed build plus a publish target (`electron-updater`); the `zip` target is already produced for it.
 
@@ -160,7 +210,7 @@ Microsoft Store packaging uses electron-builder's **AppX** target (`appx`). In e
 
 ### Partner Center setup
 
-1. Create a [Microsoft Partner Center](https://partner.microsoft.com/) developer account (there is typically a one-time registration fee — confirm current pricing on Microsoft's site).
+1. Create a [Microsoft Partner Center](https://partner.microsoft.com/) developer account (individual registration is currently free — confirm current terms on Microsoft's site).
 2. Reserve the app name **World Time Buddy**.
 3. Open the app's **Product identity** page and copy:
    - **Package/Identity/Name** → `WIN_STORE_IDENTITY_NAME` (e.g. `YourPublisher.WorldTimeBuddy`)
@@ -199,7 +249,7 @@ Output: `release/WorldTimeBuddy-<version>-win-store.appx`.
 
 **CI** (`.github/workflows/ci.yml`) on PRs to `main` and pushes to `main`:
 
-- `build` (Linux): `npm ci`, tests, typecheck, desktop build, iOS web-layer build
+- `build` (Linux): `npm ci`, tests, typecheck, desktop build, iOS web-layer build, web build
 - `mac_package` (macOS): unsigned `.app` packaging dry run — catches electron-builder / entitlements mistakes before release
 - `win_package` (Windows): builds the Store `.appx` with placeholder identity and asserts it contains the resource index and the full tile set
 - `ios_build` (macOS): `cap sync` + `xcodebuild` for the iOS Simulator (no signing)
@@ -237,7 +287,8 @@ The iOS app is **not** published by the release workflow: App Store distribution
 
 ## Stack
 
-- [electron-vite](https://electron-vite.org/) · Electron 39 · React 19 · TypeScript
+- [electron-vite](https://electron-vite.org/) · Electron 41 · React 19 · TypeScript
+- [Vite](https://vite.dev/) static build + a small hand-written service worker for the web app
 - [Capacitor](https://capacitorjs.com/) 8 (iOS, Swift Package Manager)
 - [Luxon](https://moment.github.io/luxon/) for all time-zone math
 - Vitest + Testing Library

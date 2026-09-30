@@ -41,6 +41,10 @@ jobs:
       - name: Build iOS web layer
         run: npm run build:mobile
 
+      # Same build Vercel runs. Also fails if the service-worker placeholders are ever lost.
+      - name: Build web app
+        run: npm run build:web
+
   # Packaging smoke test on the real target OS: catches electron-builder / entitlements
   # mistakes on PRs instead of at release time. Unsigned; produces an unpacked .app only.
   mac_package:
