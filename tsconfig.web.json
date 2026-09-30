@@ -28,6 +28,7 @@
     "src/core/**/*",
     "src/ui/**/*",
     "src/mobile/**/*",
+    "src/web/**/*",
     "src/renderer/src/**/*"
   ]
 }

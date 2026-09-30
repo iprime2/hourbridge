@@ -1,0 +1,45 @@
+/* Web-only chrome. Everything else comes from the shared tokens and the two layouts' stylesheets. */
+
+.install-banner {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.install-text {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.install-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+/* Touch layout: a strip along the top, clear of the notch, above the header. */
+.install-banner {
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 8px;
+  right: 8px;
+}
+
+/* Desktop layout: a card in the empty space below the grid, out of the way of the controls. */
+@media (min-width: 900px) and (pointer: fine) {
+  .install-banner {
+    top: auto;
+    right: auto;
+    left: 16px;
+    bottom: 16px;
+    max-width: 440px;
+  }
+}
