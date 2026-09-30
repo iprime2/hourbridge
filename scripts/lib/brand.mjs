@@ -260,3 +260,61 @@ export function storeTile(width, height) {
     })
   })
 }
+
+/* ---------- Microsoft Store / MSIX tile plan ---------- */
+
+/** Display scale factors Windows asks for (percent). 100/200/400 are the ones Microsoft requires. */
+const APPX_SCALES = [100, 125, 150, 200, 400]
+
+/** Base sizes at 100% scale (Microsoft's asset table), keyed by the name the manifest references. */
+const APPX_BASE = {
+  StoreLogo: [50, 50],
+  Square44x44Logo: [44, 44],
+  Square150x150Logo: [150, 150],
+  Wide310x150Logo: [310, 150]
+}
+
+/** Square44x44Logo is also looked up by exact pixel size (taskbar, Start list, Alt+Tab). */
+const APPX_TARGET_SIZES = [16, 24, 32, 48, 256]
+
+/**
+ * Every tile file the package should contain. Only qualified names are produced (never a bare
+ * `Square150x150Logo.png`): electron-builder indexes them with makepri, and an unqualified file
+ * would compete with the scale-100 one for the same resource.
+ *
+ * `kind: 'unplated'` files keep a transparent rounded shape, so Windows can draw the icon on the
+ * taskbar without a coloured square behind it.
+ */
+export function appxTilePlan() {
+  const plan = []
+  for (const [name, [w, h]] of Object.entries(APPX_BASE)) {
+    for (const scale of APPX_SCALES) {
+      plan.push({
+        file: `${name}.scale-${scale}.png`,
+        width: Math.round((w * scale) / 100),
+        height: Math.round((h * scale) / 100),
+        kind: 'tile'
+      })
+    }
+  }
+  for (const size of APPX_TARGET_SIZES) {
+    plan.push({
+      file: `Square44x44Logo.targetsize-${size}.png`,
+      width: size,
+      height: size,
+      kind: 'tile'
+    })
+    plan.push({
+      file: `Square44x44Logo.targetsize-${size}_altform-unplated.png`,
+      width: size,
+      height: size,
+      kind: 'unplated'
+    })
+  }
+  return plan
+}
+
+/** Render one entry of `appxTilePlan()`. */
+export function renderAppxTile({ width, height, kind }) {
+  return kind === 'unplated' ? desktopIcon(width) : storeTile(width, height)
+}

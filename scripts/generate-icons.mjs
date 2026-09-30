@@ -3,7 +3,7 @@
  *
  *   build/icon.png                                      desktop icon (Windows/Linux/electron-builder default)
  *   build/icon-mac.png                                  macOS icon with the system margin
- *   build/appx/*.png                                    Microsoft Store tiles
+ *   build/appx/*.png                                    Microsoft Store tiles (every scale + target size)
  *   ios/App/App/Assets.xcassets/AppIcon.appiconset/     App Store icon (1024, no alpha)
  *   ios/App/App/Assets.xcassets/Splash.imageset/        launch images, light + dark
  *
@@ -12,7 +12,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { desktopIcon, iosIcon, macIcon, splash, storeTile } from './lib/brand.mjs'
+import { appxTilePlan, desktopIcon, iosIcon, macIcon, renderAppxTile, splash } from './lib/brand.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const at = (...p) => path.join(root, ...p)
@@ -26,13 +26,21 @@ function write(file, data) {
 write(at('build/icon.png'), desktopIcon())
 write(at('build/icon-mac.png'), macIcon())
 
-for (const [name, [w, h]] of Object.entries({
-  'StoreLogo.png': [50, 50],
-  'Square44x44Logo.png': [44, 44],
-  'Square150x150Logo.png': [150, 150],
-  'Wide310x150Logo.png': [310, 150]
-})) {
-  write(at('build/appx', name), storeTile(w, h))
+// Microsoft Store tiles at every scale Windows asks for. Old bare-named tiles are removed:
+// electron-builder indexes the qualified files with makepri, and a bare `Square150x150Logo.png`
+// would compete with `Square150x150Logo.scale-100.png` for the same resource.
+const appxDir = at('build/appx')
+fs.mkdirSync(appxDir, { recursive: true })
+const plan = appxTilePlan()
+const wanted = new Set(plan.map((t) => t.file))
+for (const existing of fs.readdirSync(appxDir)) {
+  if (existing.endsWith('.png') && !wanted.has(existing)) {
+    fs.unlinkSync(path.join(appxDir, existing))
+    console.log(`removed build/appx/${existing}`)
+  }
+}
+for (const tile of plan) {
+  write(path.join(appxDir, tile.file), renderAppxTile(tile))
 }
 
 const assets = at('ios/App/App/Assets.xcassets')

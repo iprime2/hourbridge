@@ -63,6 +63,53 @@ jobs:
       - name: Pack .app (no signing)
         run: npm run pack -- --mac
 
+  # The release workflow only builds the Store package when the Partner Center secrets exist, so
+  # this is what keeps the AppX config, the tile assets and the Windows SDK tooling working: it
+  # builds one with placeholder identity and checks what ended up inside. Unsigned, not published.
+  win_package:
+    name: Windows Store package (placeholder identity)
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build AppX
+        run: npm run dist:win:store
+
+      # Scaled tiles need a resource index (resources.pri, built by makepri); without it Windows
+      # ignores the *.scale-* files and falls back to blurry upscaling — or the generic sample tile.
+      - name: Inspect the package
+        shell: pwsh
+        run: |
+          $appx = Get-ChildItem release -Filter '*-win-store.appx' | Select-Object -First 1
+          if (-not $appx) { throw 'No .appx was produced' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [IO.Compression.ZipFile]::OpenRead($appx.FullName)
+          $names = @($zip.Entries | ForEach-Object { $_.FullName })
+          $manifest = [IO.StreamReader]::new($zip.GetEntry('AppxManifest.xml').Open()).ReadToEnd()
+          $zip.Dispose()
+
+          $tiles = @($names | Where-Object { $_ -like 'assets/*.png' })
+          Write-Host "$($appx.Name): $($names.Count) entries, $($tiles.Count) tile images"
+          if ($names -notcontains 'resources.pri') { throw 'resources.pri is missing: scaled tiles were not indexed' }
+          if ($tiles.Count -lt 30) { throw "Expected the full set of 30 tile images, found $($tiles.Count)" }
+          foreach ($required in 'assets/Square150x150Logo.scale-200.png', 'assets/Wide310x150Logo.scale-200.png',
+                                'assets/Square44x44Logo.targetsize-256_altform-unplated.png', 'assets/StoreLogo.scale-100.png') {
+            if ($names -notcontains $required) { throw "Missing $required" }
+          }
+          if ($manifest -notmatch 'runFullTrust') { throw 'runFullTrust capability missing from the manifest' }
+          Write-Host 'Package looks right.'
+
   # Compiles the iOS app for the simulator. This is the only place the native project is
   # actually built — it cannot be built on Linux/WSL. Signing is disabled; no secrets needed.
   ios_build:

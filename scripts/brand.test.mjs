@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import zlib from 'node:zlib'
-import { desktopIcon, encodePng, iosIcon, macIcon, render, splash, storeTile } from './lib/brand.mjs'
+import {
+  appxTilePlan,
+  desktopIcon,
+  encodePng,
+  iosIcon,
+  macIcon,
+  render,
+  renderAppxTile,
+  splash,
+  storeTile
+} from './lib/brand.mjs'
 
 /** Minimal PNG reader: enough to check header fields and pixels of our own (filter-0) output. */
 function decode(png) {
@@ -94,6 +104,73 @@ describe('brand renderer', () => {
       const tile = decode(storeTile(w, h))
       expect([tile.width, tile.height]).toEqual([w, h])
       expect(tile.colorType).toBe(2)
+    }
+  })
+})
+
+describe('Microsoft Store tile plan', () => {
+  const plan = appxTilePlan()
+  const size = (file) => {
+    const t = plan.find((p) => p.file === file)
+    return t ? [t.width, t.height] : undefined
+  }
+
+  it("matches Microsoft's published pixel sizes for every scale", () => {
+    // https://learn.microsoft.com/windows/apps/design/style/iconography/app-icon-construction
+    const table = {
+      'Square44x44Logo': [44, 55, 66, 88, 176],
+      'Square150x150Logo': [150, 188, 225, 300, 600],
+      'StoreLogo': [50, 63, 75, 100, 200]
+    }
+    for (const [name, sizes] of Object.entries(table)) {
+      ;[100, 125, 150, 200, 400].forEach((scale, i) => {
+        expect(size(`${name}.scale-${scale}.png`), `${name} @${scale}%`).toEqual([sizes[i], sizes[i]])
+      })
+    }
+    expect([100, 125, 150, 200, 400].map((s) => size(`Wide310x150Logo.scale-${s}.png`))).toEqual([
+      [310, 150],
+      [388, 188],
+      [465, 225],
+      [620, 300],
+      [1240, 600]
+    ])
+  })
+
+  it('provides every taskbar target size, plated and unplated', () => {
+    for (const s of [16, 24, 32, 48, 256]) {
+      expect(size(`Square44x44Logo.targetsize-${s}.png`)).toEqual([s, s])
+      expect(size(`Square44x44Logo.targetsize-${s}_altform-unplated.png`)).toEqual([s, s])
+    }
+  })
+
+  it('never emits a bare-named tile, which would compete with its scale-100 sibling', () => {
+    expect(plan.every((t) => /\.(scale|targetsize)-\d+/.test(t.file))).toBe(true)
+    expect(plan.some((t) => /^(StoreLogo|Square\d+x\d+Logo|Wide\d+x\d+Logo)\.png$/.test(t.file))).toBe(false)
+  })
+
+  it('has unique file names and covers the four assets the manifest references', () => {
+    const files = plan.map((t) => t.file)
+    expect(new Set(files).size).toBe(files.length)
+    for (const base of ['StoreLogo', 'Square44x44Logo', 'Square150x150Logo', 'Wide310x150Logo']) {
+      expect(files.some((f) => f.startsWith(`${base}.`)), base).toBe(true)
+    }
+  })
+
+  it('renders plated tiles opaque and unplated ones with transparent corners', () => {
+    const plated = decode(renderAppxTile(plan.find((t) => t.file === 'Square44x44Logo.targetsize-256.png')))
+    expect(plated.colorType).toBe(2) // RGB: no alpha, the plate is the tile
+    const unplated = decode(
+      renderAppxTile(plan.find((t) => t.file === 'Square44x44Logo.targetsize-256_altform-unplated.png'))
+    )
+    expect(unplated.colorType).toBe(6)
+    expect(unplated.pixel(0, 0).a).toBe(0)
+    expect(unplated.pixel(128, 128).a).toBe(255)
+  })
+
+  it('renders every planned tile at exactly its planned size', () => {
+    for (const tile of plan) {
+      const img = decode(renderAppxTile(tile))
+      expect([img.width, img.height], tile.file).toEqual([tile.width, tile.height])
     }
   })
 })
