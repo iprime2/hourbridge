@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' capacitor: data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: capacitor:; connect-src 'self' capacitor: ionic:"
+    />
+    <!-- viewport-fit=cover lets the app draw under the notch; env(safe-area-inset-*) keeps content clear of it. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>World Time Buddy</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
