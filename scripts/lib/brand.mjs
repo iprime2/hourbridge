@@ -318,3 +318,33 @@ export function appxTilePlan() {
 export function renderAppxTile({ width, height, kind }) {
   return kind === 'unplated' ? desktopIcon(width) : storeTile(width, height)
 }
+
+/* ---------- Web app (PWA) icons ---------- */
+
+/**
+ * PWA icon. A "maskable" icon is full-bleed with the mark inset to 70%, so whatever shape the OS
+ * crops it to (circle, squircle, teardrop) keeps the whole mark inside the safe zone — a circle of
+ * 40% of the icon's width, per the W3C manifest spec. Ordinary ("any") icons keep the rounded shape.
+ */
+export function webIcon(size, { maskable = false } = {}) {
+  if (!maskable) return desktopIcon(size)
+  const mark = size * 0.7
+  const off = (size - mark) / 2
+  return encodePng({
+    width: size,
+    height: size,
+    alpha: false,
+    rgba: render({
+      width: size,
+      height: size,
+      background: BRAND.gradient[1],
+      plate: { x: 0, y: 0, w: size, h: size, radius: 0 },
+      mark: { x: off, y: off, size: mark }
+    })
+  })
+}
+
+/** iOS "Add to Home Screen" icon: opaque and full-bleed — iOS applies its own rounded mask. */
+export function appleTouchIcon(size = 180) {
+  return iosIcon(size)
+}
