@@ -140,6 +140,12 @@ jobs:
           - os: macos-latest
             platform: mac
     runs-on: ${{ matrix.os }}
+    env:
+      # These three decide whether a Store package is built (see "Build Windows Store AppX").
+      # `secrets` cannot be used in a step's `if:`, but `env` can, so surface just these here.
+      WIN_STORE_IDENTITY_NAME: ${{ secrets.WIN_STORE_IDENTITY_NAME }}
+      WIN_STORE_PUBLISHER: ${{ secrets.WIN_STORE_PUBLISHER }}
+      WIN_STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.WIN_STORE_PUBLISHER_DISPLAY_NAME }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -159,18 +165,30 @@ jobs:
         if: matrix.platform == 'win'
         run: npm run dist:win
 
-      # Always build AppX with config placeholders (or optional repo secrets) so
-      # Partners can download a Store package. Replace identity before submission.
-      # AppX requires Windows SDK — windows-latest only (macOS job unchanged).
+      # The Store package is only built with the real Partner Center identity. Without it the
+      # package would carry placeholder values (publisher "CN=ms") and be unsigned, so it could be
+      # neither installed nor submitted — attaching it to a release would just be a dead download.
+      # PRs still build one with placeholders (ci.yml → win_package) to keep the config working.
+      # AppX needs the Windows SDK, so this is windows-latest only.
       - name: Build Windows Store AppX
-        if: matrix.platform == 'win'
+        if: >-
+          matrix.platform == 'win' &&
+          env.WIN_STORE_IDENTITY_NAME != '' &&
+          env.WIN_STORE_PUBLISHER != '' &&
+          env.WIN_STORE_PUBLISHER_DISPLAY_NAME != ''
         env:
-          WIN_STORE_IDENTITY_NAME: ${{ secrets.WIN_STORE_IDENTITY_NAME }}
-          WIN_STORE_PUBLISHER: ${{ secrets.WIN_STORE_PUBLISHER }}
-          WIN_STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.WIN_STORE_PUBLISHER_DISPLAY_NAME }}
           WIN_STORE_APPLICATION_ID: ${{ secrets.WIN_STORE_APPLICATION_ID }}
           WIN_STORE_DISPLAY_NAME: ${{ secrets.WIN_STORE_DISPLAY_NAME }}
         run: npm run dist:win:store
+
+      - name: Note that the Store package was skipped
+        if: >-
+          matrix.platform == 'win' &&
+          (env.WIN_STORE_IDENTITY_NAME == '' ||
+          env.WIN_STORE_PUBLISHER == '' ||
+          env.WIN_STORE_PUBLISHER_DISPLAY_NAME == '')
+        shell: bash
+        run: echo "::notice title=Microsoft Store package skipped::Set the WIN_STORE_IDENTITY_NAME, WIN_STORE_PUBLISHER and WIN_STORE_PUBLISHER_DISPLAY_NAME secrets (from Partner Center → Product identity) to build it. See the README."
 
       # Signed + notarized when the secrets below exist; otherwise electron-builder.cjs
       # falls back to an unsigned build (empty secrets evaluate to ""), so forks and
@@ -195,7 +213,8 @@ jobs:
             release/WorldTimeBuddy-*-portable.exe
             release/WorldTimeBuddy-*-win-store.appx
             release/WorldTimeBuddy-*-win-store.appxupload
-          # .appxupload is optional (not always produced); require at least Setup/portable/appx.
+          # The .appx exists only when the Store secrets are set, and .appxupload is not always
+          # produced; the installer and portable .exe are always there, so this still fails on a bad build.
           if-no-files-found: error
 
       - name: Upload macOS artifacts
