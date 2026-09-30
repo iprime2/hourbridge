@@ -24,6 +24,12 @@ export default function MobileApp() {
   const now = useNow('minute')
   useTheme(state.theme)
 
+  // Lets mobile.css scope its page-level rules to this layout (see the note at the top of it).
+  useEffect(() => {
+    document.documentElement.classList.add('is-mobile-ui')
+    return () => document.documentElement.classList.remove('is-mobile-ui')
+  }, [])
+
   const [sheet, setSheet] = useState<SheetState>(null)
   const [title, setTitle] = useState('')
   const [toast, setToast] = useState('')

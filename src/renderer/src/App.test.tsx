@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@renderer/App'
@@ -24,9 +24,26 @@ describe('App World Time Buddy UI', () => {
     expect(within(istRow).getByLabelText(/home timezone/i)).toBeInTheDocument()
   })
 
-  it('exposes an Open widget control in the toolbar', () => {
+  it('exposes an Open widget control in the toolbar when running inside Electron', () => {
+    window.wtb = {
+      openWidget: vi.fn(async () => undefined),
+      closeWidget: vi.fn(async () => undefined),
+      focusMain: vi.fn(async () => undefined),
+      setAlwaysOnTop: vi.fn(async (v: boolean) => v),
+      getAlwaysOnTop: vi.fn(async () => true)
+    }
+    try {
+      render(<App />)
+      expect(screen.getByRole('button', { name: /open widget/i })).toBeInTheDocument()
+    } finally {
+      window.wtb = undefined
+    }
+  })
+
+  it('hides the Widget button in a plain browser, where there is no widget window', () => {
+    expect(window.wtb).toBeUndefined()
     render(<App />)
-    expect(screen.getByRole('button', { name: /open widget/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /open widget/i })).toBeNull()
   })
 
   it('highlights a home-hour column across rows when a tile is clicked', async () => {

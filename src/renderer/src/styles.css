@@ -509,7 +509,7 @@
 }
 
 /* Green because it is in your working hours — but it is night in that city. */
-.tile-moon {
+.hour-tile .tile-moon {
   position: absolute;
   top: 3px;
   right: 4px;
