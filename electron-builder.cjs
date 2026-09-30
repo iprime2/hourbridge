@@ -26,6 +26,12 @@ const applicationId =
 const displayName =
   process.env.WIN_STORE_DISPLAY_NAME || "World Time Buddy";
 
+// macOS signing is opt-in: set CSC_LINK (base64 .p12 or path) + CSC_KEY_PASSWORD, or CSC_NAME
+// for a keychain identity. Notarization additionally needs APPLE_TEAM_ID and Apple credentials.
+// See README → "macOS signing & notarization".
+const macSigning = Boolean(process.env.CSC_LINK || process.env.CSC_NAME);
+const macNotarize = macSigning && Boolean(process.env.APPLE_TEAM_ID);
+
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
   appId: "com.worldtimebuddy.app",
@@ -58,8 +64,22 @@ module.exports = {
     artifactName: "WorldTimeBuddy-${version}-win-store.${ext}",
   },
   mac: {
-    target: ["dmg"],
+    // dmg for people, zip for auto-updaters and Homebrew casks.
+    target: ["dmg", "zip"],
     category: "public.app-category.productivity",
-    identity: null,
+    // Inset icon that matches the macOS icon grid (build/icon.png is used elsewhere).
+    icon: "build/icon-mac.png",
+    // Hardened runtime is required for notarization, and only meaningful when signing.
+    hardenedRuntime: macSigning,
+    gatekeeperAssess: false,
+    entitlements: "build/entitlements.mac.plist",
+    entitlementsInherit: "build/entitlements.mac.plist",
+    // Uses APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID (or the APPLE_API_KEY trio).
+    notarize: macNotarize,
+    // No certificate configured → ship an unsigned build instead of failing.
+    ...(macSigning ? {} : { identity: null }),
+    extendInfo: {
+      LSMinimumSystemVersion: "12.0",
+    },
   },
 };
