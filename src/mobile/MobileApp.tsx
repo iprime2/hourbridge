@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { DateTime } from 'luxon'
 import CityPicker from '@ui/CityPicker'
 import Logo from '@ui/Logo'
@@ -25,7 +25,8 @@ export default function MobileApp() {
   useTheme(state.theme)
 
   // Lets mobile.css scope its page-level rules to this layout (see the note at the top of it).
-  useEffect(() => {
+  // A layout effect, so the class is in place before the first paint (no flash of unscoped body styles).
+  useLayoutEffect(() => {
     document.documentElement.classList.add('is-mobile-ui')
     return () => document.documentElement.classList.remove('is-mobile-ui')
   }, [])
