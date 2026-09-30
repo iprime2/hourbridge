@@ -1,6 +1,6 @@
 {
   "name": "world-time-buddy",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "World Time Buddy — timezone planner for macOS, Windows and iOS",
   "main": "./out/main/index.js",
   "author": "World Time Buddy",
