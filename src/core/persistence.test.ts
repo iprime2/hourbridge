@@ -1,0 +1,259 @@
+import { describe, expect, it } from 'vitest'
+import {
+  isWidgetView,
+  loadPersistedBuddyState,
+  loadResolvedBuddyState,
+  parsePersistedBuddyState,
+  PERSIST_VERSION,
+  sanitizeLocations,
+  savePersistedBuddyState,
+  subscribePersist,
+  WTB_STORAGE_KEY
+} from '@core/persistence'
+import { DEFAULT_LOCATIONS } from '@core/timezones'
+
+describe('persistence', () => {
+  it('parses valid persisted buddy state', () => {
+    const raw = JSON.stringify({
+      locations: DEFAULT_LOCATIONS,
+      timeFormat: '24h'
+    })
+    const parsed = parsePersistedBuddyState(raw)
+    expect(parsed?.timeFormat).toBe('24h')
+    expect(parsed?.locations).toHaveLength(DEFAULT_LOCATIONS.length)
+  })
+
+  it('rejects invalid payloads', () => {
+    expect(parsePersistedBuddyState(null)).toBeNull()
+    expect(parsePersistedBuddyState('{')).toBeNull()
+    expect(parsePersistedBuddyState('not-json')).toBeNull()
+    expect(parsePersistedBuddyState(JSON.stringify({ locations: [], timeFormat: '12h' }))).toBeNull()
+    expect(
+      parsePersistedBuddyState(JSON.stringify({ locations: DEFAULT_LOCATIONS, timeFormat: '9h' }))
+    ).toBeNull()
+    expect(
+      parsePersistedBuddyState(
+        JSON.stringify({ locations: [{ id: 1, label: 'x', iana: 'UTC' }], timeFormat: '12h' })
+      )
+    ).toBeNull()
+    expect(
+      parsePersistedBuddyState(JSON.stringify({ timeFormat: '12h' }))
+    ).toBeNull()
+  })
+
+  it('detects widget view from hash or query', () => {
+    expect(isWidgetView('', '#widget')).toBe(true)
+    expect(isWidgetView('', '#/widget')).toBe(true)
+    expect(isWidgetView('?view=widget', '')).toBe(true)
+    expect(isWidgetView('view=widget', '')).toBe(true)
+    expect(isWidgetView('', '#main')).toBe(false)
+    expect(isWidgetView('?view=main', '#other')).toBe(false)
+    expect(isWidgetView('', '#widget/extra')).toBe(false)
+  })
+
+  it('round-trips through storage', () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value)
+      }
+    }
+    savePersistedBuddyState(
+      { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h' },
+      storage
+    )
+    expect(store.get(WTB_STORAGE_KEY)).toContain('IST')
+    expect(loadPersistedBuddyState(storage)?.timeFormat).toBe('12h')
+  })
+
+  it('returns null for corrupt JSON in storage', () => {
+    const storage = {
+      getItem: () => '{corrupt',
+      setItem: () => undefined
+    }
+    expect(loadPersistedBuddyState(storage)).toBeNull()
+  })
+})
+
+describe('persistence v2', () => {
+  const v1 = { locations: DEFAULT_LOCATIONS, timeFormat: '12h' }
+
+  it('migrates v1 payloads by filling defaults', () => {
+    const parsed = parsePersistedBuddyState(JSON.stringify(v1))
+    expect(parsed?.version).toBe(PERSIST_VERSION)
+    expect(parsed?.theme).toBe('system')
+    expect(parsed?.workHours).toEqual({ start: 9, end: 17 })
+  })
+
+  it('keeps valid current-version settings and replaces garbled ones', () => {
+    const ok = parsePersistedBuddyState(
+      JSON.stringify({ ...v1, version: 3, theme: 'dark', workHours: { start: 8, end: 20 } })
+    )
+    expect(ok?.theme).toBe('dark')
+    expect(ok?.workHours).toEqual({ start: 8, end: 20 })
+
+    // Inclusive 0–23 hours: end may equal start, but 24, reversed or negative values are rejected.
+    expect(
+      parsePersistedBuddyState(JSON.stringify({ ...v1, version: 3, workHours: { start: 10, end: 10 } }))
+        ?.workHours
+    ).toEqual({ start: 10, end: 10 })
+
+    for (const workHours of [
+      { start: 18, end: 9 },
+      { start: -1, end: 5 },
+      { start: 9, end: 24 },
+      { start: 9.5, end: 12 },
+      'x',
+      null
+    ]) {
+      const bad = parsePersistedBuddyState(
+        JSON.stringify({ ...v1, version: 3, theme: 'neon', workHours })
+      )
+      expect(bad?.theme).toBe('system')
+      expect(bad?.workHours).toEqual({ start: 9, end: 17 })
+    }
+  })
+
+  describe('migrating working hours from the half-open v1/v2 shape', () => {
+    const migrate = (version: number | undefined, workHours: unknown) =>
+      parsePersistedBuddyState(
+        JSON.stringify({ ...v1, ...(version === undefined ? {} : { version }), workHours })
+      )?.workHours
+
+    it('keeps the hours the person picked — a saved 1 PM – 9 PM stays 1 PM – 9 PM', () => {
+      // The end hour used to be excluded; it is included now, so the window gains its last tile.
+      expect(migrate(2, { start: 13, end: 21 })).toEqual({ start: 13, end: 21 })
+      expect(migrate(2, { start: 8, end: 20 })).toEqual({ start: 8, end: 20 })
+      expect(migrate(2, { start: 13, end: 14 })).toEqual({ start: 13, end: 14 })
+    })
+
+    it('clamps a midnight close to 11 PM, the last tile of the day', () => {
+      expect(migrate(2, { start: 0, end: 24 })).toEqual({ start: 0, end: 23 })
+    })
+
+    it('moves the never-customised old default (9–18) to the new default (9–17)', () => {
+      expect(migrate(2, { start: 9, end: 18 })).toEqual({ start: 9, end: 17 })
+      expect(migrate(undefined, { start: 9, end: 18 })).toEqual({ start: 9, end: 17 })
+      // Only that exact pair: anything else the user chose is left alone.
+      expect(migrate(2, { start: 9, end: 19 })).toEqual({ start: 9, end: 19 })
+      expect(migrate(2, { start: 10, end: 18 })).toEqual({ start: 10, end: 18 })
+    })
+
+    it('treats an unversioned payload as v1', () => {
+      expect(migrate(undefined, { start: 8, end: 20 })).toEqual({ start: 8, end: 20 })
+    })
+
+    it('does not touch a payload that is already current', () => {
+      expect(migrate(3, { start: 9, end: 18 })).toEqual({ start: 9, end: 18 })
+    })
+
+    it('falls back to the default when the old value was already invalid', () => {
+      expect(migrate(2, { start: 18, end: 9 })).toEqual({ start: 9, end: 17 })
+      expect(migrate(2, { start: 5, end: 5 })).toEqual({ start: 9, end: 17 })
+      expect(migrate(2, { start: 5, end: 25 })).toEqual({ start: 9, end: 17 })
+      expect(migrate(2, 'nope')).toEqual({ start: 9, end: 17 })
+    })
+
+    it('is stable: migrating what we just wrote changes nothing', () => {
+      const store = new Map<string, string>()
+      const storage = { setItem: (k: string, v: string) => void store.set(k, v) }
+      const migrated = migrate(2, { start: 13, end: 21 })!
+      savePersistedBuddyState(
+        { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h', workHours: migrated },
+        storage
+      )
+      expect(JSON.parse(store.get(WTB_STORAGE_KEY)!).version).toBe(PERSIST_VERSION)
+      expect(parsePersistedBuddyState(store.get(WTB_STORAGE_KEY)!)?.workHours).toEqual(migrated)
+    })
+  })
+
+  it('drops locations whose zone the runtime cannot resolve', () => {
+    const parsed = parsePersistedBuddyState(
+      JSON.stringify({
+        timeFormat: '12h',
+        locations: [
+          { id: 'a', label: 'A', iana: 'Asia/Kolkata', isHome: true },
+          { id: 'b', label: 'B', iana: 'Mars/Olympus' }
+        ]
+      })
+    )
+    expect(parsed?.locations.map((l) => l.id)).toEqual(['a'])
+  })
+
+  it('returns null when no location survives sanitizing', () => {
+    expect(
+      parsePersistedBuddyState(
+        JSON.stringify({ timeFormat: '12h', locations: [{ id: 'x', label: 'X', iana: 'Nope/Zone' }] })
+      )
+    ).toBeNull()
+  })
+
+  it('guarantees exactly one home and de-duplicates ids', () => {
+    const noHome = sanitizeLocations([
+      { id: 'lon', label: 'London', iana: 'Europe/London' },
+      { id: 'tok', label: 'Tokyo', iana: 'Asia/Tokyo' }
+    ])
+    expect(noHome?.filter((l) => l.isHome).map((l) => l.id)).toEqual(['lon'])
+
+    const istHome = sanitizeLocations([
+      { id: 'lon', label: 'London', iana: 'Europe/London' },
+      { id: 'ist', label: 'IST', iana: 'Asia/Kolkata' }
+    ])
+    expect(istHome?.find((l) => l.isHome)?.id).toBe('ist')
+
+    const two = sanitizeLocations([
+      { id: 'a', label: 'A', iana: 'Europe/London', isHome: true },
+      { id: 'b', label: 'B', iana: 'Asia/Tokyo', isHome: true },
+      { id: 'a', label: 'A again', iana: 'Asia/Tokyo' }
+    ])
+    expect(two).toHaveLength(2)
+    expect(two?.filter((l) => l.isHome).map((l) => l.id)).toEqual(['a'])
+  })
+
+  it('writes the current version and notifies subscribers', () => {
+    const store = new Map<string, string>()
+    const storage = { setItem: (k: string, v: string) => void store.set(k, v) }
+    const seen: string[] = []
+    const off = subscribePersist((json) => seen.push(json))
+
+    savePersistedBuddyState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '24h', theme: 'dark' }, storage)
+    off()
+    savePersistedBuddyState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '24h' }, storage)
+
+    expect(JSON.parse(store.get(WTB_STORAGE_KEY)!).version).toBe(PERSIST_VERSION)
+    expect(seen).toHaveLength(1)
+    expect(JSON.parse(seen[0]).theme).toBe('dark')
+  })
+
+  it('survives storage that throws on write or read', () => {
+    const seen: string[] = []
+    const off = subscribePersist((j) => seen.push(j))
+    const throwing = {
+      setItem: () => {
+        throw new Error('QuotaExceededError')
+      }
+    }
+    expect(() =>
+      savePersistedBuddyState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '12h' }, throwing)
+    ).not.toThrow()
+    off()
+    expect(seen).toHaveLength(0)
+
+    expect(
+      loadPersistedBuddyState({
+        getItem: () => {
+          throw new Error('SecurityError')
+        }
+      })
+    ).toBeNull()
+    expect(loadPersistedBuddyState(null)).toBeNull()
+  })
+
+  it('resolves defaults on first run', () => {
+    const resolved = loadResolvedBuddyState({ getItem: () => null })
+    expect(resolved.locations.map((l) => l.id)).toEqual(DEFAULT_LOCATIONS.map((l) => l.id))
+    expect(resolved.theme).toBe('system')
+    expect(resolved.workHours).toEqual({ start: 9, end: 17 })
+  })
+})

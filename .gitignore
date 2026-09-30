@@ -3,9 +3,24 @@ node_modules/
 
 # Build outputs
 dist/
+dist-mobile/
 out/
 release/
 *.local
+
+# iOS (generated / per-user; the ios/ project itself is committed)
+ios/App/Pods/
+ios/App/build/
+ios/DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Signing material — never commit
+*.p12
+*.pfx
+*.cer
+*.mobileprovision
+AuthKey_*.p8
 
 # Electron
 *.asar

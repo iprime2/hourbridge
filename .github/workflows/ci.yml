@@ -19,10 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Capacitor 8's CLI requires Node 22+.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
@@ -34,5 +35,64 @@ jobs:
       - name: Lint (typecheck)
         run: npm run lint
 
-      - name: Build
+      - name: Build desktop
         run: npm run build
+
+      - name: Build iOS web layer
+        run: npm run build:mobile
+
+  # Packaging smoke test on the real target OS: catches electron-builder / entitlements
+  # mistakes on PRs instead of at release time. Unsigned; produces an unpacked .app only.
+  mac_package:
+    name: macOS package (unsigned dry run)
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pack .app (no signing)
+        run: npm run pack -- --mac
+
+  # Compiles the iOS app for the simulator. This is the only place the native project is
+  # actually built — it cannot be built on Linux/WSL. Signing is disabled; no secrets needed.
+  ios_build:
+    name: iOS simulator build
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web layer and sync into the Xcode project
+        run: npm run ios:sync
+
+      - name: Build for iOS Simulator
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

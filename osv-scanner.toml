@@ -1,10 +1,6 @@
 # OSV Scanner ignore list for findings with no practical/patched fix.
-# Prefer dependency upgrades over ignores when a fixed version exists.
-
-[[IgnoredVulns]]
-id = "GHSA-jmr9-qjv8-65gv"
-reason = "extract-zip@2.0.1 has no patched release; pulled transitively by electron as a Chromium/zip download helper. Risk is limited to local packaging tooling, not app runtime."
-
-[[IgnoredVulns]]
-id = "GHSA-7pqw-9j4j-h8q3"
-reason = "extract-zip@2.0.1 has no patched release; transitive via electron. Same packaging-helper exposure as GHSA-jmr9-qjv8-65gv; no upstream fix available at scan time."
+# Prefer dependency upgrades over ignores when a fixed version exists, and remove an entry
+# as soon as the dependency is gone or fixed (a stale ignore would hide a regression).
+#
+# (Empty for now: the previous extract-zip exceptions (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3)
+# went away when Electron was upgraded to 41.x, which no longer depends on it.)

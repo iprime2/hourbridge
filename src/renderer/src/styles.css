@@ -1,199 +1,126 @@
+/* Desktop (Electron) layout. Colors, type and primitives come from @ui/tokens.css. */
+
 :root {
-  color-scheme: light;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  line-height: 1.4;
-  font-weight: 400;
-  color: #1a2332;
-  background: #e8eef5;
-  --meta-width: 220px;
-  --tile-min: 36px;
-  --day-bg: #5b9bd5;
-  --day-bg-hover: #4a8bc4;
-  --night-bg: #3d4f63;
-  --night-fg: #e8eef5;
-  --active-ring: #f5c518;
-  --surface: #ffffff;
-  --border: #c5d0dc;
-  --accent: #2f6fed;
-  --danger: #c0392b;
-  --muted: #5a6a7a;
+  --meta-width: 256px;
+  --tile-min: 30px;
+  --row-height: 64px;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
+/* —— Shell —— */
 .app-shell {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 0.75rem 1rem 1.25rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  gap: 12px;
+  height: 100vh;
+  padding: 12px 16px 12px;
 }
 
+/* Hugs its rows; only scrolls (with a sticky header) once there are more than fit. */
 .app-main {
-  flex: 1;
-  overflow-x: auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(26, 35, 50, 0.08);
-}
-
-.app-hint {
-  margin: 0.75rem 0 0;
-  font-size: 0.8rem;
-  color: var(--muted);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 /* —— Toolbar —— */
 .toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
+  gap: 12px 20px;
 }
 
 .toolbar-brand {
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .toolbar-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #1a3a5c;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .date-strip {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  flex: 1 1 auto;
   justify-content: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .date-strip-days {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
+}
+
+.date-strip .btn-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.date-month {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .date-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 2.75rem;
-  padding: 0.35rem 0.4rem;
+  min-width: 46px;
+  padding: 4px 6px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
-  color: var(--muted);
-  font: inherit;
 }
 
 .date-chip:hover {
-  background: rgba(47, 111, 237, 0.08);
-}
-
-.date-chip.is-today .date-chip-day {
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.date-chip.is-selected {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.date-chip.is-selected .date-chip-day,
-.date-chip.is-selected.is-today .date-chip-day {
-  color: #fff;
+  background: var(--surface-sunken);
 }
 
 .date-chip-dow {
   font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .date-chip-day {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1a2332;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.date-chip.is-today {
+  border-color: var(--accent);
+}
+
+.date-chip.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.date-chip.is-selected .date-chip-day {
+  color: var(--accent-contrast);
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex: 0 0 auto;
-}
-
-/* —— Buttons —— */
-.btn {
-  font: inherit;
-  cursor: pointer;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: #1a2332;
-  padding: 0.4rem 0.75rem;
-}
-
-.btn:hover {
-  border-color: #9aadc2;
-}
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.btn-primary:hover {
-  filter: brightness(1.05);
-}
-
-.btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--muted);
-}
-
-.btn-ghost:hover {
-  color: #1a2332;
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.btn-icon {
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  font-size: 1.25rem;
-  line-height: 1;
+  gap: 8px;
 }
 
 .btn-toggle {
@@ -202,218 +129,338 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.btn-tiny {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.4rem;
-  white-space: nowrap;
-}
-
-.btn-danger {
-  color: var(--danger);
-  border-color: #e8b4ae;
-}
-
-.btn-danger:hover {
-  background: #fdf0ee;
-}
-
-/* —— Add location —— */
-.add-location {
+/* —— Popover & modal —— */
+.popover-anchor {
   position: relative;
 }
 
-.add-location-panel {
+.popover {
   position: absolute;
   right: 0;
-  top: 0;
-  z-index: 20;
-  width: 260px;
-  padding: 0.5rem;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: 300px;
+  padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(26, 35, 50, 0.15);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.add-location-input {
-  width: 100%;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font: inherit;
-}
-
-.add-location-results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.add-location-empty {
-  padding: 0.5rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.add-location-option {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  gap: 0.1rem;
-  padding: 0.4rem 0.5rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  border-radius: 4px;
+  justify-content: center;
+  padding-top: 12vh;
+  background: rgba(8, 12, 22, 0.45);
 }
 
-.add-location-option:hover {
-  background: rgba(47, 111, 237, 0.1);
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 32px));
+  max-height: 68vh;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
 }
 
-.add-location-label {
-  font-weight: 600;
-  font-size: 0.9rem;
+.modal .city-picker {
+  flex: 1 1 auto;
 }
 
-.add-location-zone {
-  font-size: 0.7rem;
-  color: var(--muted);
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 /* —— Time grid —— */
 .time-grid {
+  position: relative;
+  min-width: 1000px;
   outline: none;
-  min-width: 1080px;
 }
 
 .time-grid:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--focus);
 }
 
 .time-grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
+  /* Two bands: the "Now" pill on top, hour labels below, so the pill never hides a label. */
+  min-height: 40px;
   border-bottom: 1px solid var(--border);
-  background: #f0f4f8;
+  background: var(--surface);
   font-size: 0.7rem;
-  color: var(--muted);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-}
-
-.location-row {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  min-height: 56px;
-}
-
-.location-row:last-child {
-  border-bottom: none;
-}
-
-.location-row.is-home {
-  background: #f7fafc;
-}
-
-.location-row.is-home .location-label {
-  font-weight: 700;
-}
-
-.location-meta {
-  flex: 0 0 var(--meta-width);
-  width: var(--meta-width);
-  display: grid;
-  grid-template-columns: 3.25rem 1fr;
-  grid-template-rows: auto auto;
-  gap: 0.15rem 0.4rem;
-  padding: 0.45rem 0.6rem;
-  align-content: center;
-  border-right: 1px solid var(--border);
-  background: #fafbfc;
 }
 
 .location-meta-header {
-  min-height: 1.75rem;
-  background: #f0f4f8;
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  flex: 0 0 var(--meta-width);
+  width: var(--meta-width);
+  padding: 0 14px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-.location-offset {
-  grid-row: 1 / 3;
-  align-self: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
+.location-row {
+  position: relative;
+  display: flex;
+  min-height: var(--row-height);
+  border-bottom: 1px solid var(--border);
+}
+
+.location-row:last-of-type {
+  border-bottom: none;
+}
+
+.location-row.is-home .location-meta {
+  background: var(--accent-soft);
+}
+
+.location-meta {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  flex: 0 0 var(--meta-width);
+  width: var(--meta-width);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 8px 14px 8px 22px; /* left gutter holds the drag handle */
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
 
 .location-identity {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 6px;
   min-width: 0;
 }
 
 .location-label {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 650;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.home-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  background: #d4e4fc;
-  color: #1a4a8a;
+.location-rename {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
 }
 
-.location-live {
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  color: #2a3a4a;
-}
-
-.location-actions {
+.location-time {
+  grid-row: 1 / 3;
   grid-column: 2;
+  align-self: center;
   display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.location-sub {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.location-day {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/*
+ * Row actions appear on the second line while the pointer is over the label cell (or focus is
+ * inside it). They cover only the small offset text, so the city name and live clock never vanish.
+ */
+.location-actions {
+  position: absolute;
+  left: 22px;
+  bottom: 5px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-right: 4px;
+  background: inherit; /* opaque, so it hides the offset text underneath while shown */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.location-meta:hover .location-actions,
+.location-meta:focus-within .location-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.location-meta.is-editing .location-actions {
+  display: none;
+}
+
+/* —— Drag-and-drop reordering —— */
+
+/* The grip stays above the hover overlay so it is always visible and grabbable. */
+.drag-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: grab;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.location-meta:hover .drag-handle,
+.drag-handle:focus-visible {
+  opacity: 1;
+}
+
+.drag-handle:hover {
+  color: var(--accent);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* The row being dragged fades so the gap it leaves is obvious. */
+.location-row.is-dragging {
+  opacity: 0.4;
+}
+
+/* Insertion line: above a row ("before") or under the last row ("after"). */
+.location-row.drop-before::before,
+.location-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--surface);
+  pointer-events: none;
+}
+
+.location-row.drop-before::before {
+  top: -2px;
+}
+
+.location-row.drop-after::after {
+  bottom: -2px;
+}
+
+/* Added for an instant while the browser snapshots the drag image, so the hover overlay isn't in it. */
+.location-meta.is-drag-ghost .location-actions {
+  opacity: 0 !important;
+}
+
+
+/* While a row is being dragged, show its label (not the hover buttons) so it's clear what moves. */
+.location-row.is-dragging .location-actions {
+  opacity: 0 !important;
 }
 
 .hour-track {
+  position: relative;
   flex: 1;
   display: grid;
   grid-template-columns: repeat(24, minmax(var(--tile-min), 1fr));
+  gap: 3px;
   min-width: 0;
+  padding: 6px;
+  /* Lets tile text scale with the track width (cqw) instead of the viewport. */
+  container-type: inline-size;
 }
 
 .hour-track-header {
+  padding-top: 0;
+  padding-bottom: 0;
   align-items: stretch;
 }
 
 .hour-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 0.25rem 0;
-  border-right: 1px solid transparent;
+  padding-bottom: 5px;
+  border-radius: 4px;
 }
 
-.hour-header.is-active {
-  background: rgba(245, 197, 24, 0.25);
+.hour-header.is-hover {
+  background: var(--surface-sunken);
+  color: var(--text);
   font-weight: 700;
-  color: #1a2332;
+}
+
+.hour-header.is-selected {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
 }
 
 .hour-tile {
@@ -422,65 +469,220 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.1rem;
-  min-height: 56px;
-  padding: 0.25rem 0.1rem;
-  border: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  gap: 1px;
+  min-height: calc(var(--row-height) - 12px);
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 7px;
   cursor: pointer;
-  font: inherit;
+  user-select: none;
   font-variant-numeric: tabular-nums;
-  color: #fff;
-  transition: box-shadow 0.08s ease, filter 0.08s ease;
+  transition: filter 0.08s ease;
 }
 
-.hour-tile.is-day {
-  background: var(--day-bg);
-  color: #fff;
+.hour-tile.is-work {
+  background: var(--work-bg);
+  color: var(--work-fg);
+}
+
+.hour-tile.is-awake {
+  background: var(--awake-bg);
+  color: var(--awake-fg);
 }
 
 .hour-tile.is-night {
   background: var(--night-bg);
   color: var(--night-fg);
+  box-shadow: inset 0 0 0 1px var(--night-edge);
 }
 
-.hour-tile:hover {
-  filter: brightness(1.08);
+/* A bar under work tiles carries the meaning without relying on hue. */
+.hour-tile.is-work::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--work-bar);
+}
+
+/* Green because it is in your working hours — but it is night in that city. */
+.tile-moon {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  display: flex;
+  opacity: 0.85;
+}
+
+.hour-tile.is-active:not(.is-selected) {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.hour-tile.is-selected {
   z-index: 1;
+  box-shadow: inset 0 0 0 2px var(--sel), inset 0 0 0 4px var(--sel-inner);
 }
 
-.hour-tile.is-active {
-  box-shadow: inset 0 0 0 2px var(--active-ring);
-  z-index: 2;
-  filter: brightness(1.05);
+.hour-tile:focus-visible {
+  outline-offset: 0;
 }
 
 .hour-tile-time {
-  font-size: 0.72rem;
-  font-weight: 600;
+  /* Sized from the track width so "10:30p" still fits when the window is narrow. */
+  font-size: clamp(0.6rem, 1.02cqw, 0.8rem);
+  font-weight: 650;
   line-height: 1.1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.hour-tile-suffix {
+  margin-left: 1px;
+  font-size: 0.78em;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .hour-tile-day {
-  font-size: 0.55rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   opacity: 0.85;
-  font-weight: 500;
 }
 
-@media (max-width: 1200px) {
-  :root {
-    --meta-width: 200px;
-    --tile-min: 32px;
-  }
+/* —— "Now" marker —— */
+/* Spans exactly the tile area (the tracks have 6px side padding) so the line lines up with hours. */
+.now-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* (the line sits behind the sticky header, so only the pill shows above the rows) */
+  left: calc(var(--meta-width) + 6px);
+  right: 6px;
+  z-index: 3;
+  pointer-events: none;
+}
 
-  .toolbar-title {
-    font-size: 1.1rem;
+.now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--now);
+}
+
+/* The pill lives in the (sticky, higher) header so it stays visible above the rows. */
+.now-pill-lane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 6px;
+  right: 6px;
+  pointer-events: none;
+}
+
+.now-pill {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 1px 7px;
+  border-radius: 0 0 6px 6px;
+  background: var(--now);
+  color: var(--now-fg);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* —— Legend —— */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 0 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-keys {
+  margin-left: auto;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+}
+
+.legend-swatch.is-work {
+  background: var(--work-bg);
+}
+.legend-swatch.is-awake {
+  background: var(--awake-bg);
+}
+.legend-swatch.is-night {
+  background: var(--night-bg);
+}
+
+/* Default window (1180px) and below: reclaim toolbar space so the date strip never clips. */
+@media (max-width: 1320px) {
+  .date-month {
+    display: none;
   }
 
   .date-chip {
-    min-width: 2.4rem;
-    padding: 0.3rem 0.25rem;
+    min-width: 42px;
   }
+
+  .toolbar {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --meta-width: 232px;
+    --tile-min: 32px;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .date-strip {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+}
+
+/* —— macOS: hidden inset title bar keeps traffic lights inside our toolbar —— */
+[data-platform='darwin'] .toolbar {
+  padding-top: 6px;
+  padding-left: 76px;
+  -webkit-app-region: drag;
+}
+
+[data-platform='darwin'] .toolbar button,
+[data-platform='darwin'] .toolbar input,
+[data-platform='darwin'] .toolbar select,
+[data-platform='darwin'] .popover,
+[data-platform='darwin'] .add-location {
+  -webkit-app-region: no-drag;
 }
 
 /* —— Desktop widget —— */
@@ -489,7 +691,6 @@ html.is-widget body {
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  background: #dfe7f0;
 }
 
 .widget-shell {
@@ -504,10 +705,9 @@ html.is-widget body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
-  background: #1a3a5c;
-  color: #fff;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
   user-select: none;
 }
 
@@ -515,7 +715,6 @@ html.is-widget body {
   margin: 0;
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -524,72 +723,51 @@ html.is-widget body {
 .widget-chrome-actions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-.widget-chrome .btn {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #fff;
-}
-
-.widget-chrome .btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.widget-chrome .btn-danger {
-  color: #fff;
-  border-color: rgba(255, 180, 170, 0.5);
-}
-
-.widget-chrome .btn-danger:hover {
-  background: rgba(192, 57, 43, 0.85);
-}
-
 .widget-list {
-  list-style: none;
+  flex: 1;
   margin: 0;
   padding: 0;
   overflow-y: auto;
-  flex: 1;
+  list-style: none;
 }
 
 .widget-row {
   display: grid;
-  grid-template-columns: 3rem 1fr auto;
-  gap: 0.4rem;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  padding: 0.55rem 0.65rem;
+  gap: 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
-  font-variant-numeric: tabular-nums;
 }
 
 .widget-row.is-home {
-  background: #f7fafc;
-}
-
-.widget-offset {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--muted);
+  background: var(--accent-soft);
 }
 
 .widget-label {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  flex-direction: column;
   min-width: 0;
-  font-size: 0.85rem;
-  font-weight: 600;
+}
+
+.widget-name {
+  font-size: 0.9rem;
+  font-weight: 650;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.widget-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .widget-time {
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #1a2332;
 }

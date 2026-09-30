@@ -1,0 +1,463 @@
+/* iOS (Capacitor) layout. Colors, type and primitives come from @ui/tokens.css. */
+
+:root {
+  --m-label: 132px;
+  --m-tile: 56px;
+  --m-row: 68px;
+  --m-head: 44px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 0;
+  font-size: 15px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 16px inputs: anything smaller makes iOS zoom the page on focus. */
+.m-app input,
+.m-app select {
+  font-size: 16px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* 44pt minimum tap targets. */
+.m-app .btn {
+  min-height: 44px;
+  padding: 0.4rem 0.9rem;
+}
+
+.m-app .btn-icon {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.m-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  background: var(--bg);
+}
+
+.m-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 4px 16px;
+}
+
+.m-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.m-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.m-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.m-datebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 8px;
+}
+
+.m-date {
+  flex: 1;
+  text-align: center;
+  font-weight: 650;
+  font-size: 1.05rem;
+}
+
+/* —— Grid —— */
+.m-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 8px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.m-scroll {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.m-table {
+  position: relative;
+  width: calc(var(--m-label) + 24 * var(--m-tile));
+}
+
+.m-row {
+  display: grid;
+  grid-template-columns: var(--m-label) repeat(24, var(--m-tile));
+  height: var(--m-row);
+  border-bottom: 1px solid var(--border);
+}
+
+.m-row:last-of-type {
+  border-bottom: 0;
+}
+
+.m-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: var(--m-head);
+  background: var(--surface);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.m-corner {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.m-hour {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+}
+
+.m-hour.is-selected {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
+/* Stacked (name / time / offset) so a long city name never fights the clock for width. */
+.m-city {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 0;
+  padding: 6px 10px 6px 12px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.m-row.is-home .m-city {
+  background: var(--accent-soft);
+}
+
+.m-city-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-city-time {
+  order: 2;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.m-city-sub {
+  order: 3;
+  max-width: 100%;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  margin: 4px 1.5px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.m-tile.is-work {
+  background: var(--work-bg);
+  color: var(--work-fg);
+}
+
+.m-tile.is-awake {
+  background: var(--awake-bg);
+  color: var(--awake-fg);
+}
+
+.m-tile.is-night {
+  background: var(--night-bg);
+  color: var(--night-fg);
+  box-shadow: inset 0 0 0 1px var(--night-edge);
+}
+
+.m-tile.is-work::after {
+  content: '';
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--work-bar);
+}
+
+.tile-moon {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  display: flex;
+  opacity: 0.85;
+}
+
+.m-tile.is-selected {
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px var(--sel), inset 0 0 0 4px var(--sel-inner);
+}
+
+.m-tile-time {
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.m-tile-suffix {
+  margin-left: 1px;
+  font-size: 0.78em;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.m-tile-day {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.m-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--m-label) + var(--now-frac) * 24 * var(--m-tile));
+  width: 2px;
+  margin-left: -1px;
+  background: var(--now);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.m-now-pill {
+  position: absolute;
+  top: 0;
+  left: calc(var(--m-label) + var(--now-frac) * 24 * var(--m-tile));
+  transform: translateX(-50%);
+  padding: 1px 7px;
+  border-radius: 0 0 6px 6px;
+  background: var(--now);
+  color: var(--now-fg);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* —— Planner (bottom) —— */
+.m-planner {
+  flex: none;
+  max-height: 42dvh;
+  padding: 8px 8px calc(8px + var(--safe-bottom));
+  overflow-y: auto;
+}
+
+.m-planner .planner {
+  padding: 12px;
+}
+
+.m-planner .planner-title {
+  width: 100%;
+  min-height: 44px;
+}
+
+.m-planner .planner-when {
+  flex: 1 1 100%;
+}
+
+.m-planner .planner-actions {
+  flex: 1 1 100%;
+  margin-left: 0;
+}
+
+.m-planner .planner-actions .btn-primary {
+  flex: 1;
+}
+
+/* —— Bottom sheets —— */
+.m-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(8, 12, 22, 0.45);
+}
+
+.m-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 88dvh;
+  padding: 8px 16px calc(16px + var(--safe-bottom));
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--shadow-lg);
+  animation: m-rise 0.22s ease-out;
+}
+
+@keyframes m-rise {
+  from {
+    transform: translateY(28px);
+    opacity: 0.6;
+  }
+}
+
+.m-sheet-grabber {
+  width: 36px;
+  height: 5px;
+  margin: 4px auto 6px;
+  border-radius: 3px;
+  background: var(--border-strong);
+}
+
+.m-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.m-sheet-title {
+  margin: 0;
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-sheet-body {
+  min-height: 0;
+  padding-top: 8px;
+  overflow: auto;
+}
+
+.m-sheet .city-picker-list {
+  max-height: 55dvh;
+}
+
+.m-sheet .city-picker-item {
+  min-height: 48px;
+  align-items: center;
+}
+
+.m-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.m-rename {
+  display: flex;
+  gap: 8px;
+}
+
+.m-rename .city-picker-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.m-action {
+  width: 100%;
+}
+
+.m-action-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.m-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 96px);
+  z-index: 60;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  transform: translateX(-50%);
+}

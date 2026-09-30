@@ -1,0 +1,133 @@
+/* Meeting planner bar — shared by desktop and iOS. Imported by PlannerBar.tsx. */
+
+.planner {
+  flex: none;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.planner-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.planner-title {
+  width: 200px;
+  min-height: 32px;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.planner-when {
+  font-weight: 650;
+}
+
+.planner-zone {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.planner-length {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.planner-hours {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.planner-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.planner-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planner-person {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  font-size: 0.8rem;
+}
+
+.planner-person-name {
+  font-weight: 700;
+}
+
+.planner-person-time {
+  color: var(--text-muted);
+}
+
+.planner-summary {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.planner-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+}
+
+.planner-hint {
+  color: var(--text-muted);
+}
+
+.planner-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.planner-suggest-label {
+  font-weight: 600;
+}
+
+.btn.chip {
+  border-radius: 999px;
+  min-height: 28px;
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.btn.chip:hover {
+  background: var(--accent-soft);
+  filter: brightness(0.96);
+}
+
+.planner-status {
+  min-height: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.planner-status:not(:empty) {
+  margin-top: 6px;
+}

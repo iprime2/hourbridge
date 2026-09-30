@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@renderer/App'
-import { WTB_STORAGE_KEY } from '@renderer/lib/persistence'
+import { WTB_STORAGE_KEY } from '@core/persistence'
 
 describe('App World Time Buddy UI', () => {
   beforeEach(() => {
