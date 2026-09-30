@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
@@ -114,7 +114,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
@@ -149,7 +149,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
@@ -172,12 +172,17 @@ jobs:
           WIN_STORE_DISPLAY_NAME: ${{ secrets.WIN_STORE_DISPLAY_NAME }}
         run: npm run dist:win:store
 
-      - name: Build macOS DMG (unsigned)
+      # Signed + notarized when the secrets below exist; otherwise electron-builder.cjs
+      # falls back to an unsigned build (empty secrets evaluate to ""), so forks and
+      # first-time setups still succeed. See README → "macOS signing & notarization".
+      - name: Build macOS DMG + ZIP
         if: matrix.platform == 'mac'
         env:
-          # Unsigned by default — pipeline succeeds without Apple certs.
-          # Optional future secrets: CSC_LINK, CSC_KEY_PASSWORD, Apple ID notarization.
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run dist:mac
 
       - name: Upload Windows artifacts
@@ -198,7 +203,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-dmgs-${{ needs.quality.outputs.version }}
-          path: release/WorldTimeBuddy-*.dmg
+          path: |
+            release/WorldTimeBuddy-*.dmg
+            release/WorldTimeBuddy-*-mac-*.zip
           if-no-files-found: error
 
   publish:
