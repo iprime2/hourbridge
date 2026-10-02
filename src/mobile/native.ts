@@ -36,10 +36,18 @@ export function mirrorStateToNative(): () => void {
   })
 }
 
-/** A light tick for selection changes. */
+/** A light tick for selection changes (native haptics; a short vibration where browsers allow it). */
 export function hapticSelection(): void {
-  if (!isNative()) return
-  void Haptics.selectionChanged().catch(() => undefined)
+  if (isNative()) {
+    void Haptics.selectionChanged().catch(() => undefined)
+    return
+  }
+  try {
+    // Android browsers only; iOS Safari has no vibration API, so this is simply skipped there.
+    navigator.vibrate?.(8)
+  } catch {
+    // Vibration can be blocked by permissions policy; it is purely cosmetic.
+  }
 }
 
 export function prefersDark(theme: ThemePreference): boolean {
@@ -59,13 +67,12 @@ export function syncStatusBar(theme: ThemePreference): void {
 
 /**
  * Share a meeting. On iOS this opens the share sheet with the text and the .ics file, so the
- * receiver (or Calendar itself) can add it. In a browser it falls back to copying the text.
- * Resolves with a short status message for the UI.
+ * receiver (or Calendar itself) can add it. In a browser it uses the Web Share API where the
+ * platform has one (phones, installed PWAs) and otherwise copies the text.
+ * Resolves with a short status message for the UI ("" when there is nothing to say).
  */
 export async function shareMeeting(text: string, ics: string, filename: string): Promise<string> {
-  if (!isNative()) {
-    return (await copyText(text)) ? 'Copied to clipboard' : 'Could not copy'
-  }
+  if (!isNative()) return shareOnWeb(text, ics, filename)
   try {
     await Filesystem.writeFile({
       path: filename,
@@ -81,4 +88,22 @@ export async function shareMeeting(text: string, ics: string, filename: string):
     const message = error instanceof Error ? error.message : String(error)
     return /cancel|dismiss/i.test(message) ? '' : 'Could not share'
   }
+}
+
+async function shareOnWeb(text: string, ics: string, filename: string): Promise<string> {
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      const data: ShareData = { title: 'Meeting', text }
+      // Attach the calendar file when the browser can share files, so "Add to Calendar" appears.
+      const file = new File([ics], filename, { type: 'text/calendar' })
+      if (navigator.canShare?.({ files: [file] })) data.files = [file]
+      await navigator.share(data)
+      return ''
+    } catch (error) {
+      // The person closing the share sheet is not a failure.
+      if (error instanceof DOMException && error.name === 'AbortError') return ''
+      // Anything else (blocked, unsupported payload): copying is better than failing.
+    }
+  }
+  return (await copyText(text)) ? 'Copied to clipboard' : 'Could not copy'
 }

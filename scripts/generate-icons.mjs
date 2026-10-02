@@ -4,6 +4,7 @@
  *   build/icon.png                                      desktop icon (Windows/Linux/electron-builder default)
  *   build/icon-mac.png                                  macOS icon with the system margin
  *   build/appx/*.png                                    Microsoft Store tiles (every scale + target size)
+ *   src/web/public/                                     web app icons (PWA, maskable, Apple touch, favicon)
  *   ios/App/App/Assets.xcassets/AppIcon.appiconset/     App Store icon (1024, no alpha)
  *   ios/App/App/Assets.xcassets/Splash.imageset/        launch images, light + dark
  *
@@ -12,7 +13,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { appxTilePlan, desktopIcon, iosIcon, macIcon, renderAppxTile, splash } from './lib/brand.mjs'
+import {
+  appleTouchIcon,
+  appxTilePlan,
+  desktopIcon,
+  iosIcon,
+  macIcon,
+  renderAppxTile,
+  splash,
+  webIcon
+} from './lib/brand.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const at = (...p) => path.join(root, ...p)
@@ -42,6 +52,14 @@ for (const existing of fs.readdirSync(appxDir)) {
 for (const tile of plan) {
   write(path.join(appxDir, tile.file), renderAppxTile(tile))
 }
+
+// Web app / PWA icons (favicon.svg is hand-written to match src/ui/Logo.tsx).
+const webPublic = at('src/web/public')
+write(path.join(webPublic, 'icon-192.png'), webIcon(192))
+write(path.join(webPublic, 'icon-512.png'), webIcon(512))
+write(path.join(webPublic, 'icon-maskable-512.png'), webIcon(512, { maskable: true }))
+write(path.join(webPublic, 'apple-touch-icon.png'), appleTouchIcon(180))
+write(path.join(webPublic, 'favicon-32.png'), webIcon(32))
 
 const assets = at('ios/App/App/Assets.xcassets')
 if (fs.existsSync(assets)) {

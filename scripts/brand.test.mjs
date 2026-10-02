@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import zlib from 'node:zlib'
 import {
+  appleTouchIcon,
+  BRAND,
   appxTilePlan,
   desktopIcon,
   encodePng,
@@ -9,7 +11,8 @@ import {
   render,
   renderAppxTile,
   splash,
-  storeTile
+  storeTile,
+  webIcon
 } from './lib/brand.mjs'
 
 /** Minimal PNG reader: enough to check header fields and pixels of our own (filter-0) output. */
@@ -172,5 +175,67 @@ describe('Microsoft Store tile plan', () => {
       const img = decode(renderAppxTile(tile))
       expect([img.width, img.height], tile.file).toEqual([tile.width, tile.height])
     }
+  })
+})
+
+
+describe('web app (PWA) icons', () => {
+  it('draws ordinary icons rounded, with transparent corners', () => {
+    for (const size of [192, 512]) {
+      const icon = decode(webIcon(size))
+      expect([icon.width, icon.height]).toEqual([size, size])
+      expect(icon.colorType).toBe(6)
+      expect(icon.pixel(0, 0).a).toBe(0)
+      expect(icon.pixel(size / 2, size / 2).a).toBe(255)
+    }
+  })
+
+  it('draws the Apple touch icon opaque and full-bleed (iOS applies its own mask)', () => {
+    const icon = decode(appleTouchIcon())
+    expect([icon.width, icon.height]).toEqual([180, 180])
+    expect(icon.colorType).toBe(2)
+    expect(icon.pixel(0, 0)).toMatchObject({ a: 255 })
+  })
+
+  /**
+   * Distance from the centre of the farthest pixel that is part of the mark. Every pixel is compared
+   * with the exact background gradient expected at that spot, so *any* mark pixel counts — including
+   * the dark corner bars, which a colour test for "white or green" would miss.
+   */
+  function farthestMarkPixel(icon, size) {
+    const [c0, c1] = BRAND.gradient
+    let farthest = 0
+    let markPixels = 0
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const t = (x + 0.5 + y + 0.5) / (size + size)
+        const { r, g, b } = icon.pixel(x, y)
+        const differs =
+          Math.abs(r - (c0[0] + (c1[0] - c0[0]) * t)) > 8 ||
+          Math.abs(g - (c0[1] + (c1[1] - c0[1]) * t)) > 8 ||
+          Math.abs(b - (c0[2] + (c1[2] - c0[2]) * t)) > 8
+        if (differs) {
+          markPixels++
+          farthest = Math.max(farthest, Math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2))
+        }
+      }
+    }
+    return { farthest, markPixels }
+  }
+
+  it('keeps the whole mark inside the maskable safe zone (a circle of 40% of the width)', () => {
+    const size = 512
+    const icon = decode(webIcon(size, { maskable: true }))
+    expect(icon.colorType).toBe(2) // full-bleed, no transparency for the OS to mask around
+    const { farthest, markPixels } = farthestMarkPixel(icon, size)
+    expect(markPixels).toBeGreaterThan(5000) // we really did find the mark
+    expect(farthest).toBeLessThanOrEqual(0.4 * size)
+  })
+
+  it('would fail that check for a mark at full size (the test has teeth)', () => {
+    const size = 512
+    const { farthest } = farthestMarkPixel(decode(appleTouchIcon(size)), size)
+    // At full size the dark corner bars reach well outside the safe circle.
+    expect(farthest).toBeGreaterThan(0.4 * size)
   })
 })

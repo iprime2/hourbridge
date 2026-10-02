@@ -23,7 +23,10 @@
     "ios:add": "cap add ios --packagemanager SPM",
     "ios:sync": "npm run build:mobile && cap sync ios",
     "ios:open": "npm run ios:sync && cap open ios",
-    "generate:icons": "node scripts/generate-icons.mjs"
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "dev:web": "vite --config vite.web.config.ts",
+    "build:web": "vite build --config vite.web.config.ts",
+    "preview:web": "vite preview --config vite.web.config.ts"
   },
   "dependencies": {
     "luxon": "^3.7.2"
@@ -60,5 +63,8 @@
     "xcode": {
       "uuid": "^11.1.1"
     }
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

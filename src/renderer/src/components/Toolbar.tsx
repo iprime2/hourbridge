@@ -74,6 +74,10 @@ export default function Toolbar({
   const today = now.setZone(homeZone)
   const center = DateTime.fromObject(selectedDate, { zone: homeZone })
 
+  // The widget is a second Electron window. In a plain browser there is nothing to open, so the
+  // button only exists when the desktop bridge (or an explicit handler) is available.
+  const canOpenWidget = Boolean(onOpenWidget) || typeof window.wtb?.openWidget === 'function'
+
   const handleOpenWidget = (): void => {
     if (onOpenWidget) {
       onOpenWidget()
@@ -155,9 +159,11 @@ export default function Toolbar({
           onOpenChange={onAddOpenChange}
           onAdd={onAddLocation}
         />
-        <button type="button" className="btn" aria-label="Open widget" onClick={handleOpenWidget}>
-          Widget
-        </button>
+        {canOpenWidget ? (
+          <button type="button" className="btn" aria-label="Open widget" onClick={handleOpenWidget}>
+            Widget
+          </button>
+        ) : null}
         <button
           type="button"
           className="btn btn-toggle"

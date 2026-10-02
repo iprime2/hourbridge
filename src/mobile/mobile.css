@@ -11,13 +11,18 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-html,
-body {
+/*
+ * Page-level rules apply only while this layout is showing (MobileApp adds `is-mobile-ui` to
+ * <html>). The web build loads this stylesheet alongside the desktop one, so unscoped `html` /
+ * `body` rules would leak into the desktop layout.
+ */
+html.is-mobile-ui,
+html.is-mobile-ui body {
   height: 100%;
   overscroll-behavior: none;
 }
 
-body {
+html.is-mobile-ui body {
   min-height: 0;
   font-size: 15px;
   -webkit-user-select: none;
@@ -265,7 +270,7 @@ body {
   background: var(--work-bar);
 }
 
-.tile-moon {
+.m-tile .tile-moon {
   position: absolute;
   top: 4px;
   right: 5px;

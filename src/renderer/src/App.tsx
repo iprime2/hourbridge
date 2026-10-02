@@ -103,7 +103,7 @@ export default function App() {
         onWorkHours={state.setWorkHours}
         onSortByOffset={state.sortByOffset}
         onAddLocation={state.addLocation}
-        onOpenWidget={() => void window.wtb?.openWidget?.()}
+        onOpenWidget={window.wtb?.openWidget ? () => void window.wtb?.openWidget() : undefined}
       />
 
       <main className="app-main">
