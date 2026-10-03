@@ -11,7 +11,7 @@ Time math is the product. It lives only in `src/core` and is pure: `timeEngine.t
 
 - Start from an absolute `DateTime` instant and go through `setZone`. Never add hours to wall-clock numbers or subtract two `.hour` values. An offset is `instant.setZone(zone).offset` in minutes, divided by 60, so +5:45 is `5.75` — never rounded.
 - Wall time → instant happens in one place, `resolveWallTime` (`instantFromHomeDateTime` wraps it), which throws on invalid input (`assertValid`). Don't call luxon's `DateTime.fromObject` for a wall time that must be stable in a DST zone: for a time that repeats on fall-back it picks a copy using the zone's offset *today*. `getDstInfo` instead degrades to `{ inDst: false, nextChange: null }` for an unknown zone. Pick the behaviour on purpose.
-- Working hours are whole hours 0–23 in the *home* zone, **both ends inclusive**, weekdays only, and the weekday is judged in the home zone, not in each city. Night is local hours 0–5 and 22–23 (`classifyDayNight`).
+- Working hours are whole hours 0–23 in the *home* zone, **both ends inclusive**, on the days you work, and the weekday is judged in the home zone, not in each city. The days are `WorkHours.days` (ISO 1–7; absent means Monday–Friday), read only through `isWorkDay`; `workDays.ts` has the toggle, sanitizer and summary. Night is local hours 0–5 and 22–23 (`classifyDayNight`).
 - Key UI by location `id`, compute by IANA zone: two cities can share a zone. Legacy names (`Asia/Calcutta`, `Asia/Katmandu`, `Europe/Kiev`) are valid to luxon; don't reject them.
 - The clock ticks on the wall-clock boundary: `useNow` waits `msUntilNextTick` (+5 ms), never a fixed `setInterval`.
 
