@@ -94,6 +94,19 @@ describe('buildWidgetRows — can you reach them right now?', () => {
     expect(Object.values(phases('2024-01-20T15:00:00'))).not.toContain('work')
   })
 
+  it('follows the days you work, not a fixed Monday–Friday', () => {
+    // Off Thursday and Friday, working Saturday and Sunday.
+    const weekendSchedule = { start: 9, end: 17, days: [1, 2, 3, 6, 7] }
+    const phaseOf = (iso: string) =>
+      buildWidgetRows(cities, '12h', DateTime.fromISO(iso, { zone: 'Asia/Kolkata' }), weekendSchedule).find(
+        (r) => r.id === 'ist'
+      )?.phase
+    expect(phaseOf('2024-01-20T15:00:00')).toBe('work') // Saturday
+    expect(phaseOf('2024-01-21T15:00:00')).toBe('work') // Sunday
+    expect(phaseOf('2024-01-18T15:00:00')).toBe('awake') // Thursday is a day off
+    expect(phaseOf('2024-01-19T15:00:00')).toBe('awake') // Friday too
+  })
+
   it('includes the end hour: 17:59 is still your working time', () => {
     expect(phases('2024-01-15T17:59:00').ist).toBe('work')
     expect(phases('2024-01-15T18:00:00').ist).toBe('awake')

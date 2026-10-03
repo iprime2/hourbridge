@@ -39,16 +39,31 @@ export interface LocalWallTime {
  */
 export type HourPhase = 'work' | 'awake' | 'night'
 
+/** ISO weekdays, 1 = Monday … 7 = Sunday. The default working week is Monday–Friday. */
+export const DEFAULT_WORK_DAYS: readonly number[] = [1, 2, 3, 4, 5]
+
 /**
- * Your working hours, defined in the HOME timezone as whole hours 0–23 with **both ends
- * inclusive**: `{ start: 13, end: 21 }` is "1 PM to 9 PM" and covers the 1 PM … 9 PM tiles.
+ * Your working week, defined in the HOME timezone: whole hours 0–23 with **both ends
+ * inclusive** (`{ start: 13, end: 21 }` is "1 PM to 9 PM" and covers the 1 PM … 9 PM tiles),
+ * on the days you work.
  */
 export interface WorkHours {
   start: number
   end: number
+  /**
+   * The days you work, as ISO weekdays (1 = Monday … 7 = Sunday), judged in the home zone.
+   * Absent means Monday–Friday. A week where Thursday and Friday are off and Saturday and
+   * Sunday are worked is `[1, 2, 3, 6, 7]`.
+   */
+  days?: readonly number[]
 }
 
 export const DEFAULT_WORK_HOURS: WorkHours = { start: 9, end: 17 }
+
+/** Is this ISO weekday one of the days you work? */
+export function isWorkDay(weekday: number, work: Pick<WorkHours, 'days'> = {}): boolean {
+  return (work.days ?? DEFAULT_WORK_DAYS).includes(weekday)
+}
 
 export interface TimelineCell {
   hour: number
@@ -251,14 +266,14 @@ export function classifyDayNight(hour: number): DayNight {
   return 'day'
 }
 
-/** Is a real instant inside your working hours? Weekdays only, judged in the home zone. */
+/** Is a real instant inside your working hours, on a day you work? Judged in the home zone. */
 export function isWorkInstant(
   instant: DateTime,
   homeZone: IanaTimezone,
   work: WorkHours = DEFAULT_WORK_HOURS
 ): boolean {
   const home = instant.setZone(homeZone)
-  return home.weekday >= 1 && home.weekday <= 5 && home.hour >= work.start && home.hour <= work.end
+  return isWorkDay(home.weekday, work) && home.hour >= work.start && home.hour <= work.end
 }
 
 /** Is this home-hour column inside your working hours? (`instant` is already in the home zone.) */
@@ -266,8 +281,11 @@ export function isWorkColumn(
   column: Pick<TimelineColumn, 'homeHour' | 'instant'>,
   work: WorkHours = DEFAULT_WORK_HOURS
 ): boolean {
-  const weekday = column.instant.weekday
-  return weekday >= 1 && weekday <= 5 && column.homeHour >= work.start && column.homeHour <= work.end
+  return (
+    isWorkDay(column.instant.weekday, work) &&
+    column.homeHour >= work.start &&
+    column.homeHour <= work.end
+  )
 }
 
 export interface TileState {
