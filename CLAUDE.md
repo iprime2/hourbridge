@@ -11,6 +11,7 @@ npm run lint                # typecheck (web + node projects)
 npm run build               # Electron bundles → out/
 npm run build:mobile        # iOS web layer → dist-mobile/
 npm run build:web           # website → dist-web/ (also stamps the service worker)
+npm run preflight:web       # check dist-web/ in real Chromium with vercel.json's headers — see the web-preflight skill
 npm run dev:web             # web app on :5175 (desktop grid ≥ 900 px wide with a mouse, touch UI otherwise)
 ```
 

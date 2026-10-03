@@ -96,7 +96,10 @@ npm run build          # desktop bundles → out/
 npm run build:mobile   # iOS web layer → dist-mobile/
 npm run build:web      # the website → dist-web/ (also stamps the service worker's cache list)
 npm run preview:web    # serve dist-web/ at http://localhost:4175 to try the installed/offline behaviour
+npm run preflight:web  # check dist-web/ in real Chromium with vercel.json's headers (needs Playwright, see below)
 ```
+
+`preflight:web` serves the built site with the exact headers from `vercel.json`, then checks it at desktop and phone sizes: no CSP violations or console errors, the service worker activates, the manifest is installable, the right layout is chosen, and the app reloads offline. It exits non-zero if anything fails. Options: `--shots <dir>` saves light/dark screenshots, `--clean` rehearses Vercel's own install and build from the last commit, `--serve-only` only serves. Playwright is not a project dependency; install it outside the repo with `npm i --no-save --prefix "${TMPDIR:-/tmp}/wtb-playwright" playwright-core` (details in `.claude/skills/web-preflight/SKILL.md`).
 
 ## Packaging
 
@@ -137,7 +140,7 @@ The same planner as a website and installable app (PWA). There is one build, `di
 `vercel.json` already contains everything Vercel needs.
 
 1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New… → Project** → import `iprime2/world-time-buddy` (Vercel can read private repositories you grant it).
-2. Leave every setting as detected — the install command, `npm run build:web` and the `dist-web` output folder come from `vercel.json`. No environment variables are needed.
+2. Keep **Root Directory** as `./`. When imported, Vercel's form showed Vite's placeholder defaults (`vite build`, `dist`, `yarn install`…) instead of the values in `vercel.json`, so enter them by hand: **Application Preset** *Other*, **Install Command** `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`, **Build Command** `npm run build:web`, **Output Directory** `dist-web`. They match `vercel.json`. No environment variables are needed.
 3. **Deploy.** Every push to `main` then redeploys production, and every pull request gets its own preview URL.
 
 Things to know:
