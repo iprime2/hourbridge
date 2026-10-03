@@ -268,6 +268,53 @@ describe('App — planning, shortcuts and settings', () => {
       expect(screen.getByText('Your working hours (London time)')).toBeInTheDocument()
     })
 
+    it('lets you pick your working days: off Thursday and Friday, working Saturday and Sunday', async () => {
+      const user = userEvent.setup()
+      const nineToFive = [9, 10, 11, 12, 13, 14, 15, 16, 17]
+      render(<App />)
+      expect(workHoursOf('IST')).toEqual(nineToFive) // today is a Wednesday, a working day by default
+
+      await user.click(screen.getByRole('button', { name: 'Settings' }))
+      for (const day of ['Thursday', 'Friday', 'Saturday', 'Sunday']) {
+        await user.click(screen.getByRole('button', { name: day }))
+      }
+      expect(screen.getByText(/tiles on Sat–Wed/)).toBeInTheDocument()
+      expect(workHoursOf('IST')).toEqual(nineToFive) // Wednesday is still on
+
+      const nextDay = () => user.click(screen.getByRole('button', { name: 'Next day' }))
+      await nextDay() // Thursday: a day off, so nothing is green
+      expect(workHoursOf('IST')).toEqual([])
+      await nextDay() // Friday
+      expect(workHoursOf('IST')).toEqual([])
+      await nextDay() // Saturday: worked
+      expect(workHoursOf('IST')).toEqual(nineToFive)
+      await nextDay() // Sunday: worked
+      expect(workHoursOf('IST')).toEqual(nineToFive)
+      await nextDay() // Monday: worked
+      expect(workHoursOf('IST')).toEqual(nineToFive)
+
+      // It is saved, in order, and the hours beside it are untouched.
+      expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).workHours).toEqual({
+        start: 9,
+        end: 17,
+        days: [1, 2, 3, 6, 7]
+      })
+    })
+
+    it('keeps your working days when you change your hours', async () => {
+      const user = userEvent.setup()
+      render(<App />)
+      await user.click(screen.getByRole('button', { name: 'Settings' }))
+      await user.click(screen.getByRole('button', { name: 'Wednesday' })) // today is a Wednesday
+      expect(workHoursOf('IST')).toEqual([]) // now a day off
+      await user.selectOptions(screen.getByLabelText('Working hours start'), '10')
+      expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).workHours).toEqual({
+        start: 10,
+        end: 17,
+        days: [1, 2, 4, 5]
+      })
+    })
+
     it('carries the meaning in text as well as colour', () => {
       render(<App />)
       const labels = within(row(/^IST timezone row$/i))

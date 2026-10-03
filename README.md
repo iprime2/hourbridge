@@ -18,7 +18,7 @@ Runs in **any modern browser** (installable, works offline) and as native apps o
 **Planning**
 
 - Any number of cities in one 24-hour grid; hover, click, or **drag** across hours to select a meeting window.
-- **Your working hours** are set once, in your home timezone (both ends included — 1 PM – 9 PM covers the 1 PM … 9 PM tiles) and shown in *every* city's local time, so the green columns line up down the grid. A small moon on a green tile means that city is asleep then; sand is awake-but-outside-your-hours, dark is night. A bar under green tiles means it isn't conveyed by colour alone.
+- **Your working hours** are set once, in your home timezone (both ends included — 1 PM – 9 PM covers the 1 PM … 9 PM tiles) and shown in *every* city's local time, so the green columns line up down the grid. **Your working days** default to Monday–Friday; turn any day on or off in Settings (for example off Thursday and Friday, working Saturday and Sunday) and the green tiles, the planner and the widget follow. A small moon on a green tile means that city is asleep then; sand is awake-but-outside-your-hours, dark is night. A bar under green tiles means it isn't conveyed by colour alone.
 - **Meeting planner**: shows each person's local time for the selection, whether it is inside your working hours and who would be asleep, the best times (you're working and nobody's asleep) or the best compromise when there are none, a duration stepper, and one-tap **Copy details** / **Add to calendar (.ics)** — or the native **Share sheet** on iOS.
 - Live **"Now" line**, half-hour and 45-minute zones handled correctly (IST ↔ US, Nepal), day-change labels on tiles.
 - **DST awareness**: a `DST` badge while daylight time is in effect and a dashed `DST soon` badge when a clock change is within ~6 weeks (tooltip has the exact date).
@@ -58,7 +58,7 @@ vercel.json     Hosting config for the web app (headers, CSP, build)
 .claude/skills/ Engineering playbook for this repo (architecture rules, checklists)
 ```
 
-Rules that keep this working: time math lives only in `src/core`; `src/core` never imports from `renderer`/`mobile`; platform features sit behind small adapters (`window.wtb?.` on desktop, `src/mobile/native.ts` on iOS) and degrade to no-ops in a browser and in tests. See [`.claude/skills/wtb-lead-engineer/SKILL.md`](.claude/skills/wtb-lead-engineer/SKILL.md).
+Rules that keep this working: time math lives only in `src/core`; `src/core` never imports from `renderer`/`mobile`; platform features sit behind small adapters (`window.wtb?.` on desktop, `src/mobile/native.ts` on iOS) and degrade to no-ops in a browser and in tests. See [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md).
 
 ## Prerequisites
 
@@ -96,7 +96,10 @@ npm run build          # desktop bundles → out/
 npm run build:mobile   # iOS web layer → dist-mobile/
 npm run build:web      # the website → dist-web/ (also stamps the service worker's cache list)
 npm run preview:web    # serve dist-web/ at http://localhost:4175 to try the installed/offline behaviour
+npm run preflight:web  # check dist-web/ in real Chromium with vercel.json's headers (needs Playwright, see below)
 ```
+
+`preflight:web` serves the built site with the exact headers from `vercel.json`, then checks it at desktop and phone sizes: no CSP violations or console errors, the service worker activates, the manifest is installable, the right layout is chosen, and the app reloads offline. It exits non-zero if anything fails. Options: `--shots <dir>` saves light/dark screenshots, `--clean` rehearses Vercel's own install and build from the last commit, `--serve-only` only serves. Playwright is not a project dependency; install it outside the repo with `npm i --no-save --prefix "${TMPDIR:-/tmp}/wtb-playwright" playwright-core` (details in `.claude/skills/web-preflight/SKILL.md`).
 
 ## Packaging
 
@@ -137,7 +140,7 @@ The same planner as a website and installable app (PWA). There is one build, `di
 `vercel.json` already contains everything Vercel needs.
 
 1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New… → Project** → import `iprime2/world-time-buddy` (Vercel can read private repositories you grant it).
-2. Leave every setting as detected — the install command, `npm run build:web` and the `dist-web` output folder come from `vercel.json`. No environment variables are needed.
+2. Keep **Root Directory** as `./`. When imported, Vercel's form showed Vite's placeholder defaults (`vite build`, `dist`, `yarn install`…) instead of the values in `vercel.json`, so enter them by hand: **Application Preset** *Other*, **Install Command** `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`, **Build Command** `npm run build:web`, **Output Directory** `dist-web`. They match `vercel.json`. No environment variables are needed.
 3. **Deploy.** Every push to `main` then redeploys production, and every pull request gets its own preview URL.
 
 Things to know:

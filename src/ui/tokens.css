@@ -407,6 +407,31 @@ select {
   color: var(--text-muted);
 }
 
+/* —— Working-day toggles: seven aria-pressed buttons, Monday to Sunday —— */
+.day-toggles {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.day-toggle {
+  min-height: 44px; /* a comfortable touch target in the iOS sheet as well */
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.day-toggle[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
 .kbd {
   display: inline-block;
   min-width: 1.4em;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
 import {
+  describeHourTransition,
   describeTilePhase,
   formatOffsetHours,
   formatTileTime,
@@ -64,6 +65,13 @@ describe('formatZoneAbbr', () => {
     expect(formatZoneAbbr(summer.setZone('Europe/London'))).toBe('UTC+1')
     expect(formatZoneAbbr(winter.setZone('Europe/London'))).toBe('UTC')
     expect(formatZoneAbbr(winter.setZone('UTC'))).toBe('UTC')
+  })
+})
+
+describe('describeHourTransition', () => {
+  it('words both daylight-saving cases in plain language', () => {
+    expect(describeHourTransition('skipped')).toBe('No such hour: the clocks go forward')
+    expect(describeHourTransition('repeated')).toBe('This hour happens twice; the first one is shown')
   })
 })
 

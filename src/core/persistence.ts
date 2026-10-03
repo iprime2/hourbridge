@@ -1,15 +1,21 @@
 import { DateTime } from 'luxon'
 import {
+  DEFAULT_WORK_DAYS,
   DEFAULT_WORK_HOURS,
   type TimeFormat,
   type WorkHours
 } from '@core/timeEngine'
+import { sameDays, sanitizeWorkDays } from '@core/workDays'
 import { DEFAULT_LOCATIONS, HOME_TIMEZONE, type Location } from '@core/timezones'
 
 export const WTB_STORAGE_KEY = 'wtb:state'
 
-/** Bump when the persisted shape changes; add a step in `parsePersistedBuddyState`. */
-export const PERSIST_VERSION = 3
+/**
+ * Bump when the persisted shape changes; add a step in `parsePersistedBuddyState`.
+ * v4: working hours may carry `days` (ISO weekdays you work). Older payloads have none, which
+ * means Monday–Friday, so v3 and earlier need no data change.
+ */
+export const PERSIST_VERSION = 4
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -55,6 +61,17 @@ function isWorkHours(value: unknown): value is WorkHours {
     (w.end as number) <= 23 &&
     (w.start as number) <= (w.end as number)
   )
+}
+
+/**
+ * The form working hours are stored and loaded in: `days` is kept only when it differs from
+ * Monday–Friday, so a default week looks exactly like it did before `days` existed. A garbled
+ * `days` is dropped (back to Monday–Friday) without discarding the hours beside it.
+ */
+export function normalizeWorkHours(hours: WorkHours): WorkHours {
+  const base = { start: hours.start, end: hours.end }
+  const days = sanitizeWorkDays(hours.days)
+  return days && !sameDays(days, DEFAULT_WORK_DAYS) ? { ...base, days } : base
 }
 
 /**
@@ -127,7 +144,7 @@ export function parsePersistedBuddyState(raw: string | null): PersistedBuddyStat
       timeFormat: record.timeFormat,
       // v1 payloads have neither field; unknown/garbled values fall back to defaults.
       theme: isTheme(record.theme) ? record.theme : 'system',
-      workHours: isWorkHours(migrated) ? { ...migrated } : { ...DEFAULT_WORK_HOURS }
+      workHours: isWorkHours(migrated) ? normalizeWorkHours(migrated) : { ...DEFAULT_WORK_HOURS }
     }
   } catch {
     return null
@@ -184,7 +201,11 @@ export function savePersistedBuddyState(
   state: PersistedBuddyState,
   storage: Pick<Storage, 'setItem'> | null = safeStorage()
 ): void {
-  const json = JSON.stringify({ ...state, version: PERSIST_VERSION })
+  const json = JSON.stringify({
+    ...state,
+    ...(state.workHours ? { workHours: normalizeWorkHours(state.workHours) } : {}),
+    version: PERSIST_VERSION
+  })
   try {
     storage?.setItem(WTB_STORAGE_KEY, json)
   } catch {

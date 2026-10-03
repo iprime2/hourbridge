@@ -1,6 +1,6 @@
 # World Time Buddy
 
-A timezone planner: one TypeScript codebase shipped as a **web app / PWA** (the main way to distribute), **Electron** desktop apps (macOS, Windows) and an **iOS** app (Capacitor). Architecture, per-platform rules and the definition of done are in [`.claude/skills/wtb-lead-engineer/SKILL.md`](.claude/skills/wtb-lead-engineer/SKILL.md) — read it before changing structure, time logic or UI. The README covers setup, packaging, CI and hosting.
+A timezone planner: one TypeScript codebase shipped as a **web app / PWA** (the main way to distribute), **Electron** desktop apps (macOS, Windows) and an **iOS** app (Capacitor). Architecture, per-platform rules and the definition of done are in [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md) — read it before changing structure, time logic or UI. The README covers setup, packaging, CI and hosting.
 
 ## Commands
 
@@ -11,6 +11,7 @@ npm run lint                # typecheck (web + node projects)
 npm run build               # Electron bundles → out/
 npm run build:mobile        # iOS web layer → dist-mobile/
 npm run build:web           # website → dist-web/ (also stamps the service worker)
+npm run preflight:web       # check dist-web/ in real Chromium with vercel.json's headers — see the web-preflight skill
 npm run dev:web             # web app on :5175 (desktop grid ≥ 900 px wide with a mouse, touch UI otherwise)
 ```
 
@@ -24,7 +25,7 @@ Before pushing: `npm test && npm run lint && npm run build && npm run build:mobi
 
 ## Product rules that are easy to break
 
-- **Working hours** are one window in the *home* timezone, whole hours 0–23, **end hour inclusive** (1 PM–9 PM covers the 1 PM … 9 PM tiles), shown in every city's local time. Stored state is versioned (`PERSIST_VERSION`); change its shape only with a migration.
+- **Working hours** are one window in the *home* timezone, whole hours 0–23, **end hour inclusive** (1 PM–9 PM covers the 1 PM … 9 PM tiles), shown in every city's local time, on the days you work (`workHours.days`: ISO weekdays judged in the home zone; absent means Monday–Friday and is stored only when it differs, so never write a default `days`). Stored state is versioned (`PERSIST_VERSION`); change its shape only with a migration.
 - The desktop and touch stylesheets are both loaded on the web. Page-level touch rules are scoped to `html.is-mobile-ui`; keep new global selectors scoped to their layout.
 - The web build uses relative URLs (works under a sub-path) and a strict CSP in `vercel.json` and `src/web/index.html`. Don't loosen the CSP or add third-party scripts, fonts or requests without asking.
 - Don't claim the iOS app or macOS/Windows packages build or run unless CI did it — they can't be built on Linux. CI jobs `ios_build`, `mac_package`, `win_package` cover them.

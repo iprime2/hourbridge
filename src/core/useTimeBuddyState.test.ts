@@ -219,6 +219,16 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
     expect(second.result.current.locations.map((l) => l.id)).toEqual(order)
   })
 
+  it('persists the working days across remounts', () => {
+    const first = renderHook(() => useTimeBuddyState())
+    expect(first.result.current.workHours.days).toBeUndefined() // Monday–Friday until you change it
+    act(() => first.result.current.setWorkHours({ start: 9, end: 17, days: [7, 6, 1, 2, 3] }))
+    first.unmount()
+
+    const second = renderHook(() => useTimeBuddyState())
+    expect(second.result.current.workHours).toEqual({ start: 9, end: 17, days: [1, 2, 3, 6, 7] })
+  })
+
   it('recovers from corrupt storage with the default locations', () => {
     localStorage.setItem(WTB_STORAGE_KEY, '{not json')
     const { result } = renderHook(() => useTimeBuddyState())
