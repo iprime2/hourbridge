@@ -2,5 +2,11 @@
 # Prefer dependency upgrades over ignores when a fixed version exists, and remove an entry
 # as soon as the dependency is gone or fixed (a stale ignore would hide a regression).
 #
-# (Empty for now: the previous extract-zip exceptions (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3)
-# went away when Electron was upgraded to 41.x, which no longer depends on it.)
+# (The previous extract-zip exceptions (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3) went away when
+# Electron was upgraded to 41.x, which no longer depends on it.)
+
+[[IgnoredVulns]]
+id = "GHSA-ch52-4w7c-c8xp"
+# Expires so it gets looked at again rather than hiding a regression forever.
+ignoreUntil = 2027-01-03
+reason = "http-cache-semantics <= 4.2.0 has no patched release. Dev-only transitive dependency of electron-builder (via @electron/get > got > cacheable-request), used as a client-side cache while downloading build tooling; not the shared/server cache the advisory concerns, and not shipped in any app. Remove when a fixed release exists."
