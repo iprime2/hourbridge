@@ -26,7 +26,8 @@
     "generate:icons": "node scripts/generate-icons.mjs",
     "dev:web": "vite --config vite.web.config.ts",
     "build:web": "vite build --config vite.web.config.ts",
-    "preview:web": "vite preview --config vite.web.config.ts"
+    "preview:web": "vite preview --config vite.web.config.ts",
+    "preflight:web": "node scripts/web-preflight.mjs"
   },
   "dependencies": {
     "luxon": "^3.7.2"
