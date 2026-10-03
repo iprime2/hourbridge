@@ -1,5 +1,5 @@
 ---
-name: wtb-lead-engineer
+name: lead-engineer
 description: Lead-engineer playbook for World Time Buddy — the web app (PWA) + Electron (Windows/macOS) + Capacitor (iOS) timezone app that shares one TypeScript core. Use when changing app architecture, UI/UX, time logic, the web/PWA shell, Electron main/preload code, macOS packaging, the iOS/Capacitor project, or CI for any of them.
 ---
 

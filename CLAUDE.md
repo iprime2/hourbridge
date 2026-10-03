@@ -1,6 +1,6 @@
 # World Time Buddy
 
-A timezone planner: one TypeScript codebase shipped as a **web app / PWA** (the main way to distribute), **Electron** desktop apps (macOS, Windows) and an **iOS** app (Capacitor). Architecture, per-platform rules and the definition of done are in [`.claude/skills/wtb-lead-engineer/SKILL.md`](.claude/skills/wtb-lead-engineer/SKILL.md) — read it before changing structure, time logic or UI. The README covers setup, packaging, CI and hosting.
+A timezone planner: one TypeScript codebase shipped as a **web app / PWA** (the main way to distribute), **Electron** desktop apps (macOS, Windows) and an **iOS** app (Capacitor). Architecture, per-platform rules and the definition of done are in [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md) — read it before changing structure, time logic or UI. The README covers setup, packaging, CI and hosting.
 
 ## Commands
 

@@ -58,7 +58,7 @@ vercel.json     Hosting config for the web app (headers, CSP, build)
 .claude/skills/ Engineering playbook for this repo (architecture rules, checklists)
 ```
 
-Rules that keep this working: time math lives only in `src/core`; `src/core` never imports from `renderer`/`mobile`; platform features sit behind small adapters (`window.wtb?.` on desktop, `src/mobile/native.ts` on iOS) and degrade to no-ops in a browser and in tests. See [`.claude/skills/wtb-lead-engineer/SKILL.md`](.claude/skills/wtb-lead-engineer/SKILL.md).
+Rules that keep this working: time math lives only in `src/core`; `src/core` never imports from `renderer`/`mobile`; platform features sit behind small adapters (`window.wtb?.` on desktop, `src/mobile/native.ts` on iOS) and degrade to no-ops in a browser and in tests. See [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md).
 
 ## Prerequisites
 
