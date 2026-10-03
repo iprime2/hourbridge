@@ -3,6 +3,7 @@ import {
   isWidgetView,
   loadPersistedBuddyState,
   loadResolvedBuddyState,
+  normalizeWorkHours,
   parsePersistedBuddyState,
   PERSIST_VERSION,
   sanitizeLocations,
@@ -255,5 +256,73 @@ describe('persistence v2', () => {
     expect(resolved.locations.map((l) => l.id)).toEqual(DEFAULT_LOCATIONS.map((l) => l.id))
     expect(resolved.theme).toBe('system')
     expect(resolved.workHours).toEqual({ start: 9, end: 17 })
+  })
+})
+
+describe('persistence v4: working days', () => {
+  const base = { locations: DEFAULT_LOCATIONS, timeFormat: '12h' }
+  const load = (workHours: unknown, version = 4) =>
+    parsePersistedBuddyState(JSON.stringify({ ...base, version, workHours }))?.workHours
+  const memoryStorage = () => {
+    const store = new Map<string, string>()
+    return { store, storage: { setItem: (k: string, v: string) => void store.set(k, v) } }
+  }
+
+  it('leaves older payloads alone: no days means Monday–Friday', () => {
+    expect(load({ start: 8, end: 20 }, 3)).toEqual({ start: 8, end: 20 })
+    expect(load({ start: 8, end: 20 }, 2)).toEqual({ start: 8, end: 20 })
+    expect(parsePersistedBuddyState(JSON.stringify({ ...base, version: 3 }))?.version).toBe(PERSIST_VERSION)
+  })
+
+  it('keeps a custom week, sorted and without repeats', () => {
+    // Off Thursday and Friday, working Saturday and Sunday.
+    expect(load({ start: 9, end: 17, days: [7, 6, 3, 2, 1, 1] })).toEqual({
+      start: 9,
+      end: 17,
+      days: [1, 2, 3, 6, 7]
+    })
+  })
+
+  it('stores a Monday–Friday week exactly the way it was stored before days existed', () => {
+    expect(load({ start: 9, end: 17, days: [1, 2, 3, 4, 5] })).toEqual({ start: 9, end: 17 })
+    expect(load({ start: 9, end: 17, days: [5, 4, 3, 2, 1] })).toEqual({ start: 9, end: 17 })
+  })
+
+  it.each([[[]], [[0, 1]], [[8]], [[1.5]], [['mon']], ['mon-fri'], [null], [{}], [[1, null]]])(
+    'drops garbled days %j but keeps the hours beside them',
+    (days) => {
+      expect(load({ start: 10, end: 19, days })).toEqual({ start: 10, end: 19 })
+    }
+  )
+
+  it('round-trips a custom week through save and load', () => {
+    const { store, storage } = memoryStorage()
+    savePersistedBuddyState(
+      {
+        locations: [...DEFAULT_LOCATIONS],
+        timeFormat: '12h',
+        workHours: { start: 9, end: 17, days: [6, 7, 1, 2, 3] }
+      },
+      storage
+    )
+    const saved = JSON.parse(store.get(WTB_STORAGE_KEY)!)
+    expect(saved.version).toBe(PERSIST_VERSION)
+    expect(saved.workHours).toEqual({ start: 9, end: 17, days: [1, 2, 3, 6, 7] })
+    expect(parsePersistedBuddyState(store.get(WTB_STORAGE_KEY)!)?.workHours).toEqual(saved.workHours)
+  })
+
+  it('does not write days for a default week', () => {
+    const { store, storage } = memoryStorage()
+    savePersistedBuddyState(
+      { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h', workHours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] } },
+      storage
+    )
+    expect(JSON.parse(store.get(WTB_STORAGE_KEY)!).workHours).toEqual({ start: 9, end: 17 })
+  })
+
+  it('normalizeWorkHours does not change what it is given', () => {
+    const input = { start: 9, end: 17, days: [7, 1] }
+    expect(normalizeWorkHours(input)).toEqual({ start: 9, end: 17, days: [1, 7] })
+    expect(input.days).toEqual([7, 1])
   })
 })
