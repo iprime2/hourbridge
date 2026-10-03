@@ -10,6 +10,7 @@ import {
   type WorkHours
 } from '@core/timeEngine'
 import {
+  describeHourTransition,
   describeTilePhase,
   formatLiveClock,
   formatOffsetHours,
@@ -276,6 +277,21 @@ export default function LocationRow({
         {columns.map((col) => {
           const cell: TimelineCell | undefined = col.cells[location.iana]
           if (!cell) return null
+          if (col.transition === 'skipped') {
+            // The home zone's clocks jump over this hour today: an empty slot, never data.
+            const note = describeHourTransition('skipped')
+            return (
+              <div
+                key={col.homeHour}
+                className="hour-tile is-skipped"
+                role="img"
+                aria-label={`${location.label}: ${note}`}
+                title={note}
+              >
+                <span aria-hidden="true">–</span>
+              </div>
+            )
+          }
           const inSelection = rangeContains(selection, col.homeHour)
           const isHovered = activeHour === col.homeHour
           const { phase, asleep } = classifyTile(col, cell, workHours)
@@ -299,7 +315,10 @@ export default function LocationRow({
                 col.instant,
                 location.iana,
                 timeFormat
-              )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)})`}
+              )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)}${
+                col.transition ? `, ${describeHourTransition(col.transition)}` : ''
+              })`}
+              title={col.transition ? describeHourTransition(col.transition) : undefined}
               aria-pressed={inSelection}
               onMouseDown={(e) => {
                 if (e.button !== 0) return

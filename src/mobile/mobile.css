@@ -174,6 +174,12 @@ html.is-mobile-ui body {
   font-weight: 700;
 }
 
+/* A home hour that does not exist today (the clocks jump over it): struck through, not data. */
+.m-hour.is-skipped {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 /* Stacked (name / time / offset) so a long city name never fights the clock for width. */
 .m-city {
   position: sticky;
@@ -241,6 +247,14 @@ html.is-mobile-ui body {
   border-radius: 9px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+}
+
+/* The matching empty slot: no time, not selectable. */
+.m-tile.is-skipped {
+  cursor: default;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text-muted);
 }
 
 .m-tile.is-work {

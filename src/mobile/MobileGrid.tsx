@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { DateTime } from 'luxon'
 import {
+  describeHourTransition,
   describeTilePhase,
   formatLiveClock,
   formatOffsetHours,
@@ -79,7 +80,11 @@ export default function MobileGrid({
           {columns.map((col) => (
             <div
               key={col.homeHour}
-              className={['m-hour', rangeContains(selection, col.homeHour) ? 'is-selected' : '']
+              className={[
+                'm-hour',
+                rangeContains(selection, col.homeHour) ? 'is-selected' : '',
+                col.transition === 'skipped' ? 'is-skipped' : ''
+              ]
                 .filter(Boolean)
                 .join(' ')}
               role="columnheader"
@@ -137,6 +142,20 @@ export default function MobileGrid({
               {columns.map((col) => {
                 const cell = col.cells[location.iana]
                 if (!cell) return null
+                if (col.transition === 'skipped') {
+                  // The home zone's clocks jump over this hour today: an empty slot, never data.
+                  const note = describeHourTransition('skipped')
+                  return (
+                    <div
+                      key={col.homeHour}
+                      className="m-tile is-skipped"
+                      role="img"
+                      aria-label={`${location.label}: ${note}`}
+                    >
+                      <span aria-hidden="true">–</span>
+                    </div>
+                  )
+                }
                 const { phase, asleep } = classifyTile(col, cell, workHours)
                 const selected = rangeContains(selection, col.homeHour)
                 const parts = tileTimeParts(cell.hour, cell.minute, timeFormat)
@@ -157,7 +176,9 @@ export default function MobileGrid({
                       col.instant,
                       location.iana,
                       timeFormat
-                    )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)})`}
+                    )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)}${
+                      col.transition ? `, ${describeHourTransition(col.transition)}` : ''
+                    })`}
                     onClick={() => onSelectHour(col.homeHour)}
                   >
                     {phase === 'work' && asleep ? (

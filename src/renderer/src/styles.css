@@ -463,6 +463,12 @@
   font-weight: 700;
 }
 
+/* A home hour that does not exist today (the clocks jump over it): struck through, not data. */
+.hour-header.is-skipped {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 .hour-tile {
   position: relative;
   display: flex;
@@ -478,6 +484,14 @@
   user-select: none;
   font-variant-numeric: tabular-nums;
   transition: filter 0.08s ease;
+}
+
+/* The matching empty slot: no time, no hover, not selectable. */
+.hour-tile.is-skipped {
+  cursor: default;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text-muted);
 }
 
 .hour-tile.is-work {

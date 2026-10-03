@@ -263,7 +263,8 @@ export default function TimeGrid({
                 className={[
                   'hour-header',
                   activeHour === col.homeHour ? 'is-hover' : '',
-                  rangeContains(selection, col.homeHour) ? 'is-selected' : ''
+                  rangeContains(selection, col.homeHour) ? 'is-selected' : '',
+                  col.transition === 'skipped' ? 'is-skipped' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
