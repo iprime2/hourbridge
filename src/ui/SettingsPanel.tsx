@@ -1,6 +1,7 @@
 import type { ThemePreference } from '@core/persistence'
 import { THEME_LABEL, THEME_ORDER } from '@core/theme'
-import { formatTime, type TimeFormat, type WorkHours } from '@core/timeEngine'
+import { DEFAULT_WORK_DAYS, formatTime, type TimeFormat, type WorkHours } from '@core/timeEngine'
+import { describeWorkDays, toggleWorkDay, WEEKDAYS } from '@core/workDays'
 
 interface SettingsPanelProps {
   theme: ThemePreference
@@ -57,6 +58,7 @@ export default function SettingsPanel({
   const startOptions = Array.from({ length: 24 }, (_, h) => h)
   // Both ends are inclusive tiles, so the last hour can equal the first (a one-hour window).
   const endOptions = Array.from({ length: 24 - workHours.start }, (_, i) => workHours.start + i)
+  const days = workHours.days ?? DEFAULT_WORK_DAYS
 
   return (
     <div className="settings-panel">
@@ -94,7 +96,7 @@ export default function SettingsPanel({
             value={workHours.start}
             onChange={(e) => {
               const start = Number(e.target.value)
-              onWorkHours({ start, end: Math.max(workHours.end, start) })
+              onWorkHours({ ...workHours, start, end: Math.max(workHours.end, start) })
             }}
           >
             {startOptions.map((h) => (
@@ -108,7 +110,7 @@ export default function SettingsPanel({
             className="settings-select"
             aria-label="Working hours end"
             value={workHours.end}
-            onChange={(e) => onWorkHours({ start: workHours.start, end: Number(e.target.value) })}
+            onChange={(e) => onWorkHours({ ...workHours, end: Number(e.target.value) })}
           >
             {endOptions.map((h) => (
               <option key={h} value={h}>
@@ -119,8 +121,30 @@ export default function SettingsPanel({
         </div>
         <span className="settings-hint">
           Covers the {hourLabel(workHours.start, timeFormat)} …{' '}
-          {hourLabel(workHours.end, timeFormat)} tiles on weekdays. Every city shows this same
-          window in its own local time, so the green columns line up.
+          {hourLabel(workHours.end, timeFormat)} tiles on {describeWorkDays(days)}. Every city
+          shows this same window in its own local time, so the green columns line up.
+        </span>
+      </div>
+
+      <div className="settings-field">
+        <span className="settings-label">Your working days</span>
+        <div className="day-toggles" role="group" aria-label="Working days">
+          {WEEKDAYS.map(({ iso, short, long }) => (
+            <button
+              key={iso}
+              type="button"
+              className="day-toggle"
+              aria-pressed={days.includes(iso)}
+              aria-label={long}
+              onClick={() => onWorkHours({ ...workHours, days: toggleWorkDay(days, iso) })}
+            >
+              {short}
+            </button>
+          ))}
+        </div>
+        <span className="settings-hint">
+          Tap a day to turn it on or off, for example off Thursday and Friday and working
+          Saturday and Sunday. At least one day stays on.
         </span>
       </div>
 

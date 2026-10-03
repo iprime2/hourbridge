@@ -160,8 +160,66 @@ describe('SettingsPanel', () => {
 
   it('explains that the window covers whole tiles, end included, in every city', () => {
     setup({ workHours: { start: 13, end: 21 } })
-    expect(screen.getByText(/Covers the 1:00 PM … 9:00 PM tiles on weekdays/)).toBeInTheDocument()
+    expect(screen.getByText(/Covers the 1:00 PM … 9:00 PM tiles on Mon–Fri/)).toBeInTheDocument()
     expect(screen.getByText(/same window in its own local time/)).toBeInTheDocument()
+  })
+
+  it('says which days the green tiles appear on', () => {
+    setup({ workHours: { start: 13, end: 21, days: [1, 2, 3, 6, 7] } })
+    expect(screen.getByText(/tiles on Sat–Wed/)).toBeInTheDocument()
+  })
+
+  describe('working days', () => {
+    const dayButtons = () => within(screen.getByRole('group', { name: 'Working days' })).getAllByRole('button')
+    const pressed = () =>
+      dayButtons()
+        .filter((b) => b.getAttribute('aria-pressed') === 'true')
+        .map((b) => b.getAttribute('aria-label'))
+
+    it('shows Monday–Friday as on by default, one button per day', () => {
+      setup()
+      expect(dayButtons().map((b) => b.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+      expect(pressed()).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
+    })
+
+    it('reflects a custom week', () => {
+      setup({ workHours: { start: 9, end: 17, days: [1, 2, 3, 6, 7] } })
+      expect(pressed()).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Saturday', 'Sunday'])
+    })
+
+    it('reports the new week when a day is tapped, keeping the hours', async () => {
+      const user = userEvent.setup()
+      const h = setup({ workHours: { start: 9, end: 17 } })
+      await user.click(screen.getByRole('button', { name: 'Thursday' }))
+      expect(h.onWorkHours).toHaveBeenLastCalledWith({ start: 9, end: 17, days: [1, 2, 3, 5] })
+      await user.click(screen.getByRole('button', { name: 'Saturday' }))
+      expect(h.onWorkHours).toHaveBeenLastCalledWith({ start: 9, end: 17, days: [1, 2, 3, 4, 5, 6] })
+    })
+
+    it('keeps the days when the hours change', async () => {
+      const user = userEvent.setup()
+      const days = [1, 2, 3, 6, 7]
+      const h = setup({ workHours: { start: 9, end: 17, days } })
+      await user.selectOptions(screen.getByLabelText('Working hours start'), '10')
+      expect(h.onWorkHours).toHaveBeenLastCalledWith({ start: 10, end: 17, days })
+      await user.selectOptions(screen.getByLabelText('Working hours end'), '20')
+      expect(h.onWorkHours).toHaveBeenLastCalledWith({ start: 9, end: 20, days })
+    })
+
+    it('never turns off the last working day', async () => {
+      const user = userEvent.setup()
+      const h = setup({ workHours: { start: 9, end: 17, days: [3] } })
+      await user.click(screen.getByRole('button', { name: 'Wednesday' }))
+      expect(h.onWorkHours).toHaveBeenLastCalledWith({ start: 9, end: 17, days: [3] })
+    })
+
+    it('can be operated from the keyboard', async () => {
+      const user = userEvent.setup()
+      const h = setup()
+      screen.getByRole('button', { name: 'Friday' }).focus()
+      await user.keyboard('{Enter}')
+      expect(h.onWorkHours).toHaveBeenLastCalledWith({ start: 9, end: 18, days: [1, 2, 3, 4] })
+    })
   })
 
   it('keeps working hours valid: the end is never before the start', async () => {
