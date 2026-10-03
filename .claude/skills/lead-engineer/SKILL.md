@@ -5,6 +5,8 @@ description: Lead-engineer playbook for World Time Buddy — the web app (PWA) +
 
 # World Time Buddy — lead engineer playbook
 
+Focused skills for specific jobs: `time-correctness` (any time, timezone, DST or clock code), `web-preflight` (check the built site before a merge or deploy), `ui-review` (audit UI code).
+
 ## Architecture (keep this shape)
 
 ```
@@ -36,6 +38,7 @@ Rules:
 - Test the awkward cases: half-hour zones (Asia/Kolkata), 45-minute (Asia/Kathmandu), DST gaps/overlaps, dates that cross midnight, zones with no DST vs DST.
 - Same IANA zone can appear under several labels — key UI by location `id`, compute by IANA.
 - Live clocks must align to the minute boundary, not drift on a fixed `setInterval`.
+- The `time-correctness` skill has the verified awkward-case table, the open DST-home-zone issue and the test recipes.
 
 ## Electron rules
 
@@ -62,7 +65,7 @@ Rules:
 - Contrast ≥ WCAG AA for text on day/night tiles; never rely on color alone (add a glyph/label for working-hours and DST).
 - Everything reachable by keyboard on desktop; visible `:focus-visible`; `aria-live` only for meaningful announcements (never for a ticking clock).
 - Respect `prefers-reduced-motion`.
-- Verify UI changes by screenshot (Playwright + cached Chromium), at desktop and phone widths, in light and dark.
+- Verify UI changes by screenshot (Playwright + cached Chromium), at desktop and phone widths, in light and dark: `npm run preflight:web -- --shots out/shots` does it. Audit the code itself with `ui-review`.
 
 ## Definition of done for any change
 
@@ -70,3 +73,4 @@ Rules:
 2. `npm run build` succeeds, plus `npm run build:mobile` and `npm run build:web` when touching shared UI/core (the web build also fails if the service-worker placeholders are lost).
 3. UI changes checked visually; anything not verifiable on this machine (macOS, iOS) is stated explicitly in the hand-off.
 4. README/docs updated when commands, targets, or secrets change.
+5. Evidence before claims: say "passes", "builds" or "fixed" only after running the check in the same turn and reading its output. Report failures and skipped steps as they are.
