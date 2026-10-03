@@ -201,3 +201,34 @@ describe('range helpers', () => {
     expect(rangeContains(null, 3)).toBe(false)
   })
 })
+
+describe('summarizePlanner when the home zone skips an hour (daylight-saving gap)', () => {
+  const skip = (hour: number) =>
+    timeline().map((c) => (c.homeHour === hour ? { ...c, transition: 'skipped' as const } : c))
+
+  it('never recommends the hour that does not exist, even if it would otherwise be best', () => {
+    expect(summarizePlanner(timeline(), [IST, LONDON], work).best?.homeHour).toBe(12)
+    const summary = summarizePlanner(skip(12), [IST, LONDON], work)
+    expect(summary.best?.homeHour).toBe(13)
+    expect(summary.scores[12]).toEqual({ homeHour: 12, mine: false, awake: 0, total: 2, skipped: true })
+  })
+
+  it('breaks a run of good hours at the missing hour', () => {
+    const summary = summarizePlanner(skip(15), [IST, LONDON], work)
+    expect(summary.sharedWindows).toEqual([
+      { start: 12, end: 14 },
+      { start: 16, end: 17 }
+    ])
+    expect(summary.awakeWindows).toEqual([
+      { start: 12, end: 14 },
+      { start: 16, end: 21 }
+    ])
+  })
+
+  it('has no best hour when every hour is skipped, instead of picking one', () => {
+    const all = timeline().map((c) => ({ ...c, transition: 'skipped' as const }))
+    const summary = summarizePlanner(all, [IST, LONDON], work)
+    expect(summary.best).toBeNull()
+    expect(summary.sharedWindows).toEqual([])
+  })
+})

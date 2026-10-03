@@ -22,6 +22,8 @@ export interface HourScore {
   /** Cities where it is not night at this instant. */
   awake: number
   total: number
+  /** The hour does not exist that day (a daylight-saving gap in the home zone): never a candidate. */
+  skipped?: true
 }
 
 export interface PlannerSummary {
@@ -70,15 +72,22 @@ export function summarizePlanner(
   locations: readonly Location[],
   work: WorkHours = DEFAULT_WORK_HOURS
 ): PlannerSummary {
-  const scores: HourScore[] = columns.map((column) => ({
-    homeHour: column.homeHour,
-    mine: isWorkColumn(column, work),
-    awake: locations.filter((l) => !isAsleepAt(column, l)).length,
-    total: locations.length
-  }))
+  const scores: HourScore[] = columns.map((column) =>
+    // A skipped hour is not a real moment (its column only repeats the next one), so it never
+    // counts as working, awake, or best — and it breaks a run of good hours.
+    column.transition === 'skipped'
+      ? { homeHour: column.homeHour, mine: false, awake: 0, total: locations.length, skipped: true }
+      : {
+          homeHour: column.homeHour,
+          mine: isWorkColumn(column, work),
+          awake: locations.filter((l) => !isAsleepAt(column, l)).length,
+          total: locations.length
+        }
+  )
 
   let best: HourScore | null = null
   for (const s of scores) {
+    if (s.skipped) continue
     if (
       !best ||
       (s.mine && !best.mine) ||

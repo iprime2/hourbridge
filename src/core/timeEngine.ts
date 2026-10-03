@@ -61,10 +61,23 @@ export interface TimelineCell {
   period: DayNight
 }
 
+/**
+ * What daylight saving does to a wall-clock hour in the home zone:
+ *  skipped  = the hour does not exist that day (clocks jump over it);
+ *  repeated = the hour happens twice, and the column shows the first.
+ */
+export type HourTransition = 'skipped' | 'repeated'
+
 export interface TimelineColumn {
   /** Hour column in the home timezone (0–23). */
   homeHour: number
+  /**
+   * The instant this column stands for. For a `skipped` hour it is the first real moment after
+   * the gap, so it duplicates the next column — show the column as empty, never as data.
+   */
   instant: DateTime
+  /** Set only on the days when daylight saving makes this home hour special. */
+  transition?: HourTransition
   cells: Record<IanaTimezone, TimelineCell>
 }
 
@@ -80,26 +93,72 @@ function assertValid(dt: DateTime, context: string): DateTime {
   return dt
 }
 
+export interface ResolvedWallTime {
+  instant: DateTime
+  /** Set when the wall time does not exist (`skipped`) or happens twice (`repeated`). */
+  transition?: HourTransition
+}
+
+const WINDOW_MS = 36 * 60 * 60 * 1000 // wider than any UTC offset, so it brackets a nearby change
+
+/**
+ * Resolve a calendar date + wall-clock time in `zone` to an absolute instant, and say when
+ * daylight saving made that wall time special.
+ *
+ * - A wall time inside a spring-forward gap does not exist: it moves forward past the gap.
+ * - A wall time that repeats on fall-back resolves to the *first* occurrence.
+ *
+ * luxon alone gets the second rule wrong in a useful-to-know way: it picks between the two
+ * copies using the zone's offset *today*, so the answer would change with the season the app
+ * is opened in. Here both candidate offsets are tried explicitly, so it never does.
+ */
+export function resolveWallTime(parts: HomeDateTimeParts, zone: IanaTimezone): ResolvedWallTime {
+  const wall = {
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hour: parts.hour ?? 0,
+    minute: parts.minute ?? 0,
+    second: parts.second ?? 0,
+    millisecond: 0
+  }
+  // Also what validates the date and the zone, with the error callers already rely on.
+  assertValid(DateTime.fromObject(wall, { zone }), `home ${zone}`)
+
+  const wallAsUtc = DateTime.fromObject(wall, { zone: 'utc' }).toMillis()
+  const offsetAt = (ms: number): number => DateTime.fromMillis(ms, { zone }).offset
+  const before = offsetAt(wallAsUtc - WINDOW_MS)
+  const after = offsetAt(wallAsUtc + WINDOW_MS)
+
+  const matches = [...new Set([before, after])]
+    .map((offsetMinutes) => wallAsUtc - offsetMinutes * 60_000)
+    .filter((ms) => {
+      const local = DateTime.fromMillis(ms, { zone })
+      return (
+        local.year === wall.year &&
+        local.month === wall.month &&
+        local.day === wall.day &&
+        local.hour === wall.hour &&
+        local.minute === wall.minute &&
+        local.second === wall.second
+      )
+    })
+
+  const at = (ms: number): DateTime => DateTime.fromMillis(ms, { zone })
+  if (matches.length === 0) {
+    // In a gap: apply the offset from before the change, which lands just past it.
+    return { instant: at(wallAsUtc - before * 60_000), transition: 'skipped' }
+  }
+  if (matches.length === 2) return { instant: at(Math.min(...matches)), transition: 'repeated' }
+  return { instant: at(matches[0]) }
+}
+
 /** Resolve a calendar date + time in the home zone to an absolute instant. */
 export function instantFromHomeDateTime(
   parts: HomeDateTimeParts,
   homeZone: IanaTimezone = HOME_TIMEZONE
 ): DateTime {
-  return assertValid(
-    DateTime.fromObject(
-      {
-        year: parts.year,
-        month: parts.month,
-        day: parts.day,
-        hour: parts.hour ?? 0,
-        minute: parts.minute ?? 0,
-        second: parts.second ?? 0,
-        millisecond: 0
-      },
-      { zone: homeZone }
-    ),
-    `home ${homeZone}`
-  )
+  return resolveWallTime(parts, homeZone).instant
 }
 
 /** Wall-clock components of `instant` in `zone`. */
@@ -145,7 +204,13 @@ export function compareHomeHourAcrossZones(
   }
 }
 
-/** 24 columns (home hours 0–23) for a calendar date in home TZ. */
+/**
+ * 24 columns (home hours 0–23) for a calendar date in home TZ.
+ *
+ * Always 24, indexed by home hour: the grids, the selection and the planner all rely on that. On
+ * a day when the home zone changes its clocks, the affected column says so in `transition`
+ * instead of silently repeating another column's data.
+ */
 export function buildDayTimeline(
   date: Pick<HomeDateTimeParts, 'year' | 'month' | 'day'>,
   zones: readonly IanaTimezone[],
@@ -154,7 +219,7 @@ export function buildDayTimeline(
   const columns: TimelineColumn[] = []
 
   for (let homeHour = 0; homeHour < 24; homeHour++) {
-    const instant = instantFromHomeDateTime({ ...date, hour: homeHour, minute: 0 }, homeZone)
+    const { instant, transition } = resolveWallTime({ ...date, hour: homeHour, minute: 0 }, homeZone)
     const cells: Record<IanaTimezone, TimelineCell> = {}
 
     for (const zone of zones) {
@@ -170,7 +235,7 @@ export function buildDayTimeline(
       }
     }
 
-    columns.push({ homeHour, instant, cells })
+    columns.push(transition ? { homeHour, instant, transition, cells } : { homeHour, instant, cells })
   }
 
   return columns

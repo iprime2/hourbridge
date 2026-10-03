@@ -4,6 +4,7 @@ import {
   getLocalWallTime,
   getOffsetHoursRelativeToHome,
   type HourPhase,
+  type HourTransition,
   type TimeFormat,
   type TimelineColumn
 } from '@core/timeEngine'
@@ -99,4 +100,11 @@ export function offsetForLocation(
 export function describeTilePhase(phase: HourPhase, asleep: boolean): string {
   if (phase === 'work') return asleep ? 'your working hours, night there' : 'your working hours'
   return phase === 'awake' ? 'awake' : 'night'
+}
+
+/** Tooltip / screen-reader note for a home hour that daylight saving makes special. */
+export function describeHourTransition(transition: HourTransition): string {
+  return transition === 'skipped'
+    ? 'No such hour: the clocks go forward'
+    : 'This hour happens twice; the first one is shown'
 }
