@@ -432,6 +432,23 @@ select {
   font-weight: 700;
 }
 
+/* —— A checkbox with its label, in the settings panel —— */
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px; /* a comfortable touch target in the iOS sheet as well */
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.settings-check input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
 .kbd {
   display: inline-block;
   min-width: 1.4em;

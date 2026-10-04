@@ -1,4 +1,6 @@
+import { countryName, countryOfZone, coverageGaps, HOLIDAY_DATA_SOURCE, HOLIDAY_YEARS } from '@core/holidays'
 import type { ThemePreference } from '@core/persistence'
+import { getHomeLocation, type Location } from '@core/timezones'
 import { THEME_LABEL, THEME_ORDER } from '@core/theme'
 import { DEFAULT_WORK_DAYS, formatTime, type TimeFormat, type WorkHours } from '@core/timeEngine'
 import { describeWorkDays, toggleWorkDay, WEEKDAYS } from '@core/workDays'
@@ -13,6 +15,8 @@ interface SettingsPanelProps {
   onSortByOffset?: () => void
   /** Name of the home city, so "working hours" says whose clock they are on. */
   homeLabel?: string
+  /** The cities on screen. Without them the public-holiday section is left out. */
+  locations?: readonly Location[]
 }
 
 interface SegmentedProps<T extends string> {
@@ -53,12 +57,15 @@ export default function SettingsPanel({
   onTimeFormat,
   onWorkHours,
   onSortByOffset,
-  homeLabel
+  homeLabel,
+  locations
 }: SettingsPanelProps) {
   const startOptions = Array.from({ length: 24 }, (_, h) => h)
   // Both ends are inclusive tiles, so the last hour can equal the first (a one-hour window).
   const endOptions = Array.from({ length: 24 - workHours.start }, (_, i) => workHours.start + i)
   const days = workHours.days ?? DEFAULT_WORK_DAYS
+  const homeCountry = locations?.length ? countryOfZone(getHomeLocation(locations).iana) : null
+  const gaps = locations ? coverageGaps(locations.map((l) => l.iana)) : []
 
   return (
     <div className="settings-panel">
@@ -147,6 +154,37 @@ export default function SettingsPanel({
           Saturday and Sunday. At least one day stays on.
         </span>
       </div>
+
+      {locations ? (
+        <div className="settings-field">
+          <span className="settings-label">Public holidays</span>
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={workHours.holidaysOff !== false}
+              onChange={(e) => onWorkHours({ ...workHours, holidaysOff: e.target.checked })}
+            />
+            <span>
+              {homeCountry
+                ? `Public holidays in ${countryName(homeCountry)} are days off`
+                : 'Public holidays at home are days off'}
+            </span>
+          </label>
+          <span className="settings-hint">
+            Each city&rsquo;s public holidays are marked on its tiles. Turn this on and a holiday at
+            home takes your working hours away for that day, so it is not suggested for meetings.
+          </span>
+          {gaps.map((gap) => (
+            <span key={gap.code} className="settings-hint settings-gap">
+              <strong>{gap.country}:</strong>{' '}
+              {gap.coverage === 'none' ? 'no public holiday data yet.' : gap.note}
+            </span>
+          ))}
+          <span className="settings-hint">
+            Holidays cover {HOLIDAY_YEARS[0]}–{HOLIDAY_YEARS[1]}, from {HOLIDAY_DATA_SOURCE}.
+          </span>
+        </div>
+      ) : null}
 
       {onSortByOffset ? (
         <button type="button" className="btn" onClick={onSortByOffset}>

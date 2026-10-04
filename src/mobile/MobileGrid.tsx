@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { DateTime } from 'luxon'
 import {
+  describeHolidays,
   describeHourTransition,
   describeTilePhase,
   formatLiveClock,
@@ -9,7 +10,7 @@ import {
   formatZoneAbbr,
   tileTimeParts
 } from '@core/formatters'
-import { MoonIcon } from '@ui/icons'
+import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { rangeContains, type HourRange } from '@core/planner'
 import {
   classifyTile,
@@ -159,6 +160,8 @@ export default function MobileGrid({
                 const { phase, asleep } = classifyTile(col, cell, workHours)
                 const selected = rangeContains(selection, col.homeHour)
                 const parts = tileTimeParts(cell.hour, cell.minute, timeFormat)
+                const holidayNote = cell.holidays ? describeHolidays(cell.holidays) : null
+                const tileNotes = [col.transition ? describeHourTransition(col.transition) : null, holidayNote].filter(Boolean)
                 return (
                   <button
                     key={col.homeHour}
@@ -167,6 +170,7 @@ export default function MobileGrid({
                       'm-tile',
                       `is-${phase}`,
                       phase === 'work' && asleep ? 'is-asleep' : '',
+                      holidayNote ? 'has-holiday' : '',
                       selected ? 'is-selected' : ''
                     ]
                       .filter(Boolean)
@@ -177,13 +181,18 @@ export default function MobileGrid({
                       location.iana,
                       timeFormat
                     )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)}${
-                      col.transition ? `, ${describeHourTransition(col.transition)}` : ''
+                      tileNotes.length ? `, ${tileNotes.join(', ')}` : ''
                     })`}
                     onClick={() => onSelectHour(col.homeHour)}
                   >
                     {phase === 'work' && asleep ? (
                       <span className="tile-moon">
                         <MoonIcon />
+                      </span>
+                    ) : null}
+                    {holidayNote ? (
+                      <span className="tile-holiday">
+                        <HolidayIcon />
                       </span>
                     ) : null}
                     <span className="m-tile-time">

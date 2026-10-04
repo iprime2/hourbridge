@@ -5,14 +5,18 @@ import {
   type ResolvedBuddyState
 } from '@core/persistence'
 import { useTheme } from '@core/theme'
+import { useHolidayLookup } from '@core/useHolidays'
 import { useNow } from '@core/useNow'
+import { describeHolidays } from '@core/formatters'
 import { buildWidgetRows } from '@core/widgetRows'
+import { HolidayIcon } from '@ui/icons'
 
 export default function WidgetApp() {
   const [buddy, setBuddy] = useState<ResolvedBuddyState>(() => loadResolvedBuddyState())
   const now = useNow('minute')
   const [alwaysOnTop, setAlwaysOnTop] = useState(true)
   useTheme(buddy.theme)
+  const holidays = useHolidayLookup(buddy.locations)
 
   // The main window writes to localStorage; other windows receive a `storage` event.
   useEffect(() => {
@@ -34,7 +38,7 @@ export default function WidgetApp() {
     }
   }, [])
 
-  const rows = buildWidgetRows(buddy.locations, buddy.timeFormat, now, buddy.workHours)
+  const rows = buildWidgetRows(buddy.locations, buddy.timeFormat, now, buddy.workHours, holidays)
   const dragStyle = { WebkitAppRegion: 'drag' } as CSSProperties
   const noDragStyle = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
@@ -80,7 +84,7 @@ export default function WidgetApp() {
           <li
             key={row.id}
             className={['widget-row', row.isHome ? 'is-home' : ''].filter(Boolean).join(' ')}
-            aria-label={`${row.label} ${row.time}`}
+            aria-label={`${row.label} ${row.time}${row.holiday ? `, public holiday: ${row.holiday}` : ''}`}
           >
             <span className={`phase-dot is-${row.phase}`} aria-hidden="true" />
             <span className="widget-label">
@@ -89,6 +93,11 @@ export default function WidgetApp() {
                 {row.offset}
                 {row.otherDay ? ` · ${row.weekday}` : ''}
               </span>
+              {row.holiday ? (
+                <span className="widget-holiday" title={describeHolidays([row.holiday])}>
+                  <HolidayIcon /> {row.holiday}
+                </span>
+              ) : null}
             </span>
             <span className="widget-time tabular">{row.time}</span>
           </li>

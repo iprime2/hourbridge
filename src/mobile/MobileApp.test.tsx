@@ -16,6 +16,7 @@ vi.mock('@mobile/native', () => ({
 
 import MobileApp from '@mobile/MobileApp'
 import * as native from '@mobile/native'
+import { setHolidayLoader } from '@core/holidays'
 import { WTB_STORAGE_KEY } from '@core/persistence'
 
 const row = (name: RegExp) => screen.getByLabelText(name)
@@ -243,3 +244,23 @@ describe('MobileApp (iOS)', () => {
     }
   })
 })
+
+describe('MobileApp (iOS) on a public holiday at home', () => {
+  beforeEach(() => {
+    localStorage.removeItem(WTB_STORAGE_KEY)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-26T04:30:00Z')) // Monday 10:00 in Kolkata, Republic Day
+    setHolidayLoader(async (code) => (code === 'IN' ? { '2026': [['01-26', 'Republic Day']] } : null))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('marks the holiday on the home tiles and drops the working hours for the day', async () => {
+    render(<MobileApp />)
+    const home = () => row(/^IST timezone row$/)
+    expect(home().querySelectorAll('.m-tile.is-work')).toHaveLength(9)
+    await waitFor(() => expect(home().querySelectorAll('.m-tile.is-work')).toHaveLength(0))
+    expect(home().querySelectorAll('.m-tile.has-holiday')).toHaveLength(24)
+    expect(tile(/^IST timezone row$/, 12)).toHaveAccessibleName(/Public holiday: Republic Day/)
+  })
+})
+

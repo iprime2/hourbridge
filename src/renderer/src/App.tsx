@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Toolbar from '@renderer/components/Toolbar'
 import TimeGrid from '@renderer/components/TimeGrid'
 import PlannerBar from '@ui/PlannerBar'
-import { MoonIcon } from '@ui/icons'
+import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { isEditableTarget } from '@ui/browser'
 import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
@@ -21,8 +21,8 @@ export default function App() {
   const homeZone = state.home.iana
 
   const columns = useMemo(
-    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone),
-    [state.selectedDate, state.locations, homeZone]
+    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone, state.holidays),
+    [state.selectedDate, state.locations, homeZone, state.holidays]
   )
   const summary = useMemo(
     () => summarizePlanner(columns, state.locations, state.workHours),
@@ -84,6 +84,7 @@ export default function App() {
         selectedDate={state.selectedDate}
         homeZone={homeZone}
         homeLabel={state.home.label}
+        locations={state.locations}
         timeFormat={state.timeFormat}
         theme={state.theme}
         workHours={state.workHours}
@@ -158,6 +159,9 @@ export default function App() {
         </span>
         <span className="legend-item">
           <MoonIcon size={12} /> Asleep during your hours
+        </span>
+        <span className="legend-item">
+          <HolidayIcon size={12} /> Public holiday
         </span>
         <span className="legend-item legend-keys">
           <kbd className="kbd">T</kbd> today · <kbd className="kbd">[</kbd>

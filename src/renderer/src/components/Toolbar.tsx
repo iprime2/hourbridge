@@ -5,6 +5,7 @@ import Logo from '@ui/Logo'
 import type { CityOption } from '@core/cityOptions'
 import type { ThemePreference } from '@core/persistence'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
+import type { Location } from '@core/timezones'
 import type { CalendarDate } from '@core/useTimeBuddyState'
 
 interface ToolbarProps {
@@ -12,6 +13,8 @@ interface ToolbarProps {
   homeZone: string
   /** Display name of the home city (for the working-hours setting). */
   homeLabel?: string
+  /** The cities on screen (the settings list the holiday data coverage of their countries). */
+  locations?: readonly Location[]
   timeFormat: TimeFormat
   theme: ThemePreference
   workHours: WorkHours
@@ -51,6 +54,7 @@ export default function Toolbar({
   selectedDate,
   homeZone,
   homeLabel,
+  locations,
   timeFormat,
   theme,
   workHours,
@@ -180,6 +184,7 @@ export default function Toolbar({
           timeFormat={timeFormat}
           workHours={workHours}
           homeLabel={homeLabel}
+          locations={locations}
           onTheme={onTheme}
           onTimeFormat={onTimeFormat}
           onWorkHours={onWorkHours}

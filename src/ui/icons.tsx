@@ -69,6 +69,21 @@ export const MoonIcon = ({ size = 10 }: { size?: number }) => (
   </svg>
 )
 
+/** Small pennant marking a public holiday on a tile (a shape, so it does not rely on colour). */
+export const HolidayIcon = ({ size = 10 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    focusable="false"
+    fill="currentColor"
+  >
+    <path d="M4 3h2.4v18H4z" />
+    <path d="M8 4h12l-3.6 4.6L20 13.2H8z" />
+  </svg>
+)
+
 interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'title'> {
   /** Accessible name and tooltip — an icon alone is not a label. */
   label: string

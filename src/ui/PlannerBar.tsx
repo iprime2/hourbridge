@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import '@ui/planner.css'
 import { copyText, downloadTextFile, fileSlug } from '@ui/browser'
-import { isAsleepAt, type HourRange, type PlannerSummary } from '@core/planner'
+import { HolidayIcon } from '@ui/icons'
+import {
+  availableAt,
+  holidaysDuring,
+  isAsleepAt,
+  type CityHolidays,
+  type HourRange,
+  type PlannerSummary
+} from '@core/planner'
 import { buildIcs, buildInviteText, formatSlot, type MeetingPlan } from '@core/share'
 import {
   DEFAULT_WORK_HOURS,
@@ -12,6 +20,7 @@ import {
   type TimelineColumn,
   type WorkHours
 } from '@core/timeEngine'
+import { describeHolidays } from '@core/formatters'
 import type { Location } from '@core/timezones'
 
 interface PlannerBarProps {
@@ -48,6 +57,17 @@ function listNames(names: readonly string[]): string {
   if (names.length === 2) return `${names[0]} and ${names[1]}`
   if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`
   return `${names.slice(0, 3).join(', ')} +${names.length - 3} more`
+}
+
+/** "Tokyo (Culture Day)" — a city and what it is celebrating. */
+function cityHoliday({ location, names }: CityHolidays): string {
+  return `${location.label} (${names.join(', ')})`
+}
+
+/** "Tokyo is on a public holiday (Culture Day)." / "Tokyo (…) and Paris (…) are on a public holiday." */
+function holidaySentence(items: readonly CityHolidays[]): string {
+  if (items.length === 1) return `${items[0].location.label} is on a public holiday (${items[0].names.join(', ')}).`
+  return `${listNames(items.map(cityHoliday))} are on a public holiday.`
 }
 
 /** "3 – 6 PM" style label for a run of home-hour columns, in the home zone. */
@@ -108,6 +128,12 @@ export default function PlannerBar({
       return { location, phase }
     })
   }, [selection, columns, locations, insideMyHours])
+
+  // Public holidays during the meeting, and (with nothing selected) anywhere on this date.
+  const holidays = useMemo(() => holidaysDuring(columns, locations, selection), [columns, locations, selection])
+  const holidayOf = (id: string): string[] => holidays.find((h) => h.location.id === id)?.names ?? []
+  const homeIsOff =
+    workHours.holidaysOff !== false && holidays.some((h) => h.location.id === locations.find((l) => l.isHome)?.id)
 
   const flash = (message: string): void => {
     setStatus(message)
@@ -210,7 +236,15 @@ export default function PlannerBar({
                 <span className="planner-person-time tabular">
                   {formatSlot(plan, location.iana, timeFormat)}
                 </span>
-                <span className="sr-only">{PHASE_TEXT[phase]}</span>
+                {holidayOf(location.id).length ? (
+                  <span className="planner-person-holiday" title={describeHolidays(holidayOf(location.id))}>
+                    <HolidayIcon /> {holidayOf(location.id).join(', ')}
+                  </span>
+                ) : null}
+                <span className="sr-only">
+                  {PHASE_TEXT[phase]}
+                  {holidayOf(location.id).length ? `, ${describeHolidays(holidayOf(location.id))}` : ''}
+                </span>
               </li>
             ))}
           </ul>
@@ -220,15 +254,24 @@ export default function PlannerBar({
             {asleepNames.length === 0
               ? 'everyone is awake.'
               : `${listNames(asleepNames)} ${asleepNames.length === 1 ? 'is' : 'are'} asleep.`}
+            {holidays.length > 0 ? ` ${holidaySentence(holidays)}` : ''}
+            {homeIsOff ? ' At home that is a day off.' : ''}
           </p>
         </>
       ) : (
         <div className="planner-empty">
           <span className="planner-hint">{hint}</span>
+          {holidays.length > 0 ? (
+            <span className="planner-holidays">
+              <HolidayIcon /> <span className="sr-only">Public holidays: </span>
+              {holidays.map(cityHoliday).join(' · ')}
+              {homeIsOff ? ' — a day off for you' : ''}
+            </span>
+          ) : null}
           {sharedWindows.length > 0 ? (
             <div className="planner-suggest">
               <span className="planner-suggest-label">
-                Best times — you’re working and nobody’s asleep:
+                Best times — you’re working and nobody’s asleep{holidays.length > 0 ? ' or on holiday' : ''}:
               </span>
               {sharedWindows.map((w) => (
                 <button
@@ -241,10 +284,13 @@ export default function PlannerBar({
                 </button>
               ))}
             </div>
-          ) : bestRange && best && best.awake > 0 ? (
+          ) : bestRange && best && availableAt(best) > 0 ? (
             <div className="planner-suggest">
               <span className="planner-suggest-label">
-                No time works for everyone. Best compromise ({best.awake} of {best.total} awake
+                No time works for everyone. Best compromise (
+                {best.holiday
+                  ? `${availableAt(best)} of ${best.total} available, ${best.holiday} on holiday`
+                  : `${best.awake} of ${best.total} awake`}
                 {best.mine ? '' : ', outside your hours'}):
               </span>
               <button

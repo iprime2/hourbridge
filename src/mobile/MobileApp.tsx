@@ -42,8 +42,8 @@ export default function MobileApp() {
   }, [state.theme])
 
   const columns = useMemo(
-    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone),
-    [state.selectedDate, state.locations, homeZone]
+    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone, state.holidays),
+    [state.selectedDate, state.locations, homeZone, state.holidays]
   )
   const summary = useMemo(
     () => summarizePlanner(columns, state.locations, state.workHours),
@@ -205,6 +205,7 @@ export default function MobileApp() {
             timeFormat={state.timeFormat}
             workHours={state.workHours}
             homeLabel={state.home.label}
+            locations={state.locations}
             onTheme={state.setTheme}
             onTimeFormat={state.setTimeFormat}
             onWorkHours={state.setWorkHours}
