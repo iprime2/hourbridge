@@ -19,6 +19,7 @@ Runs in **any modern browser** (installable, works offline) and as native apps o
 
 - Any number of cities in one 24-hour grid; hover, click, or **drag** across hours to select a meeting window.
 - **Your working hours** are set once, in your home timezone (both ends included — 1 PM – 9 PM covers the 1 PM … 9 PM tiles) and shown in *every* city's local time, so the green columns line up down the grid. **Your working days** default to Monday–Friday; turn any day on or off in Settings (for example off Thursday and Friday, working Saturday and Sunday) and the green tiles, the planner and the widget follow. A small moon on a green tile means that city is asleep then; sand is awake-but-outside-your-hours, dark is night. A bar under green tiles means it isn't conveyed by colour alone.
+- **Public holidays** for every city on screen, offline: a small pennant marks each tile that falls on a public holiday in that city's country (judged on the city's own calendar date, so the tile after midnight in Tokyo is not marked for the day before), the tooltip and screen-reader label name the holiday, and the planner lists them. A holiday in another city takes that city out of the "best times"; a holiday where *you* are is a day off by default (Settings → *Public holidays in … are days off*; turn it off if you work through them). Data covers 205 countries for 2025–2030 — see [Public-holiday data](#public-holiday-data) for what is and isn't in it. The app tells you in Settings when a country's data is partial or missing instead of silently showing no holidays.
 - **Meeting planner**: shows each person's local time for the selection, whether it is inside your working hours and who would be asleep, the best times (you're working and nobody's asleep) or the best compromise when there are none, a duration stepper, and one-tap **Copy details** / **Add to calendar (.ics)** — or the native **Share sheet** on iOS.
 - Live **"Now" line**, half-hour and 45-minute zones handled correctly (IST ↔ US, Nepal), day-change labels on tiles.
 - **DST awareness**: a `DST` badge while daylight time is in effect and a dashed `DST soon` badge when a clock change is within ~6 weeks (tooltip has the exact date).
@@ -53,7 +54,7 @@ src/web/        Web shell: picks the desktop or touch UI, install prompt, servic
 src/main/       Electron main process (windows, menu, menu-bar clock, IPC validation)
 src/preload/    Electron preload: the only bridge between renderer and main
 ios/            Capacitor-generated Xcode project (Swift Package Manager)
-scripts/        Brand/icon generator (no dependencies) and the service-worker build step
+scripts/        Brand/icon generator (no dependencies), the service-worker build step and the public-holiday data generator
 vercel.json     Hosting config for the web app (headers, CSP, build)
 .claude/skills/ Engineering playbook for this repo (architecture rules, checklists)
 ```
@@ -99,7 +100,25 @@ npm run preview:web    # serve dist-web/ at http://localhost:4175 to try the ins
 npm run preflight:web  # check dist-web/ in real Chromium with vercel.json's headers (needs Playwright, see below)
 ```
 
-`preflight:web` serves the built site with the exact headers from `vercel.json`, then checks it at desktop and phone sizes: no CSP violations or console errors, the service worker activates, the manifest is installable, the right layout is chosen, and the app reloads offline. It exits non-zero if anything fails. Options: `--shots <dir>` saves light/dark screenshots, `--clean` rehearses Vercel's own install and build from the last commit, `--serve-only` only serves. Playwright is not a project dependency; install it outside the repo with `npm i --no-save --prefix "${TMPDIR:-/tmp}/wtb-playwright" playwright-core` (details in `.claude/skills/web-preflight/SKILL.md`).
+`preflight:web` serves the built site with the exact headers from `vercel.json`, then checks it at desktop and phone sizes: no CSP violations or console errors, the service worker activates, the manifest is installable, the right layout is chosen, the app reloads offline, and — with the clock fixed on a public holiday — a country's holiday file loads under the CSP, is kept by the service worker and still shows offline. It exits non-zero if anything fails. Options: `--shots <dir>` saves light/dark screenshots, `--clean` rehearses Vercel's own install and build from the last commit, `--serve-only` only serves. Playwright is not a project dependency; install it outside the repo with `npm i --no-save --prefix "${TMPDIR:-/tmp}/wtb-playwright" playwright-core` (details in `.claude/skills/web-preflight/SKILL.md`).
+
+### Public-holiday data
+
+The app ships generated, per-country files in `src/core/holidayData/` (one small JSON file per country, plus `zones.json`, the timezone → country table, and `meta.json`). Each country's file is loaded by a dynamic `import()` the first time a city in that country is on screen, so the holiday library itself is never part of the app and nothing is fetched from a third party. On the web the files are emitted to `assets/holidays/` and are cached by the service worker when first used rather than at install (there are ~200 of them and a visitor needs a handful).
+
+```bash
+npm run generate:holidays                          # years 2025–2030, tz files from /usr/share/zoneinfo
+npm run generate:holidays -- --from 2026 --to 2031 # move the window (do this before the last year runs out)
+```
+
+The generator (`scripts/generate-holidays.mjs`) reads rules from the `date-holidays` devDependency and the timezone → country mapping from the system tz database (`zone.tab`, `tzdata.zi`, `iso3166.tab`; set `TZDIR` to use another copy). Only public holidays, in English where the source has it. The output is deterministic and committed; builds, CI and Vercel never run the generator. Run it again when `date-holidays` or tzdata moves, and edit nothing in `holidayData/` by hand (`holidayData.test.ts` checks the files' shape, ranges and a few holidays everyone knows, so a bad regeneration fails before it ships).
+
+Known gaps, shown in Settings rather than hidden:
+
+- **India is partial.** Only the fixed-date national holidays (Republic Day, Independence Day, Gandhi Jayanti, …) are in the data. Festival holidays such as Holi, Diwali and Eid move every year and differ by state, and the source does not have them yet.
+- **42 countries have no data** in the source (for example Nepal). They show no holidays, and Settings says so.
+- UTC and `Etc/*` zones belong to no country and never show holidays.
+- Outside the generated years nothing is shown.
 
 ## Packaging
 
@@ -130,7 +149,7 @@ Writes `build/icon.png`, `build/icon-mac.png` (inset for the macOS icon grid), t
 The same planner as a website and installable app (PWA). There is one build, `dist-web/`, and one page:
 
 - On a wide screen with a mouse or trackpad (`min-width: 900px` and `pointer: fine`) it shows the **desktop grid**; on phones and touch-first tablets it shows the **touch layout**. Resizing the window switches live and keeps your cities and settings.
-- It is **offline-first**: a service worker caches the whole site on the first visit. Each deploy gets its own cache (named by a hash of every file), the new version installs in the background and takes over the next time the app is opened — an open tab is never swapped mid-use — and the old cache is deleted.
+- It is **offline-first**: a service worker caches the whole site on the first visit (the per-country public-holiday files are kept the first time a country is used, so a country you have never opened has no holidays offline). Each deploy gets its own cache (named by a hash of every file), the new version installs in the background and takes over the next time the app is opened — an open tab is never swapped mid-use — and the old cache is deleted.
 - **Installable**: Chromium browsers offer an *Install* button (the app shows its own prompt, remembered for 30 days if dismissed); iOS Safari has no install API, so the app explains *Share → Add to Home Screen*.
 - Nothing leaves the device: there is no backend, no analytics and no third-party requests. Your cities and settings live in the browser's local storage.
 - Browser differences: there is no desktop widget or menu-bar clock (they need Electron); **Share** uses the browser's share sheet when it has one (with the `.ics` attached where supported) and otherwise copies the details to the clipboard.
@@ -294,6 +313,7 @@ The iOS app is **not** published by the release workflow: App Store distribution
 - [Vite](https://vite.dev/) static build + a small hand-written service worker for the web app
 - [Capacitor](https://capacitorjs.com/) 8 (iOS, Swift Package Manager)
 - [Luxon](https://moment.github.io/luxon/) for all time-zone math
+- Public-holiday data generated from [date-holidays](https://github.com/commenthol/date-holidays) (code ISC; holiday data [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) © the date-holidays contributors) and the IANA tz database (public domain). This is the attribution CC BY asks for; keep it if you redistribute the data.
 - Vitest + Testing Library
 
 ## Private repository notes

@@ -18,6 +18,7 @@ It exits 0 only if every check passes and prints `PASS`/`FAIL` per check with th
 
 - **Headers** (`/`, a hashed asset, `/sw.js`, the manifest, a 404): the six security headers are present; hashed assets are `immutable`; `sw.js` is `no-cache`; the manifest has its own media type. They come from `vercel.json` through `scripts/lib/vercel-headers.mjs`, which merges every matching rule like Vercel does.
 - **Per layout** (desktop 1280×800 with a mouse, phone 390×844 touch): the app renders; no console errors, failed requests or CSP violations; the service worker activates, controls the page after a reload, and fills exactly one cache; the manifest is installable (name, standalone, 512 and maskable icons); the right layout class is set; the page reloads and renders **offline**.
+- **Public holidays** (a second pass per layout with the clock fixed on Republic Day, 26 Jan 2026, in the default home city): the country's holiday file loads under the CSP with no console errors, the tiles are marked, the service worker kept the holiday files it was asked for (a handful, not all ~200), and the marks still show after an offline reload. `--shots` adds `<layout>-holiday-<scheme>.png`.
 
 ## Setup
 

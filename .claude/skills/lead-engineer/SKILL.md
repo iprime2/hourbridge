@@ -29,7 +29,7 @@ Rules:
 
 - One page, two layouts: desktop grid when `(min-width: 900px) and (pointer: fine)`, touch layout otherwise; switching live must keep state. Both stylesheets load on the web, so page-level touch rules stay scoped to `html.is-mobile-ui` and new global selectors must be scoped to their layout.
 - Relative URLs and `base: './'` everywhere (the site must work under a sub-path). No third-party requests: the CSP in `vercel.json` and `src/web/index.html` is `'self'` only — keep the two in step (a test enforces it).
-- Service worker: the build (`scripts/lib/sw-build.ts`) stamps a hash of every emitted file into `sw.js`, so each deploy gets its own cache. Keep install all-or-nothing, no `skipWaiting`, old caches deleted on activate, registration production-only. Any change to `sw.js` needs the fake-Cache tests in `src/web/sw.test.ts`, and a check in real Chromium (offline reload, update flow).
+- Service worker: the build (`scripts/lib/sw-build.ts`) stamps a hash of every emitted file into `sw.js`, so each deploy gets its own cache. The ~200 per-country holiday files (`assets/holidays/`, set in `vite.web.config.ts`) are in the hash but not in the install list; the cache-first `/assets/` rule keeps each one when first used. Keep install all-or-nothing, no `skipWaiting`, old caches deleted on activate, registration production-only. Any change to `sw.js` needs the fake-Cache tests in `src/web/sw.test.ts`, and a check in real Chromium (offline reload, update flow).
 - Icons come from `scripts/lib/brand.mjs` via `npm run generate:icons`; the maskable icon keeps its mark inside the 40% safe zone.
 
 ## Time-correctness checklist (the product's whole value)
