@@ -8,6 +8,7 @@ import {
   type TimeFormat,
   type TimelineColumn
 } from '@core/timeEngine'
+import type { HolidayLookup } from '@core/holidays'
 import type { Location } from '@core/timezones'
 import { DateTime } from 'luxon'
 import type { CalendarDate } from '@core/useTimeBuddyState'
@@ -78,12 +79,13 @@ export function formatLiveClock(
 export function buildTimelineForLocations(
   date: CalendarDate,
   locations: readonly Location[],
-  homeZone: string
+  homeZone: string,
+  holidays?: HolidayLookup
 ): TimelineColumn[] {
   const zones = locations.map((l) => l.iana)
   // Deduplicate zones for engine Record keys while preserving order for display via locations
   const uniqueZones = [...new Set(zones)]
-  return buildDayTimeline(date, uniqueZones, homeZone)
+  return buildDayTimeline(date, uniqueZones, homeZone, holidays)
 }
 
 export function offsetForLocation(
@@ -100,6 +102,11 @@ export function offsetForLocation(
 export function describeTilePhase(phase: HourPhase, asleep: boolean): string {
   if (phase === 'work') return asleep ? 'your working hours, night there' : 'your working hours'
   return phase === 'awake' ? 'awake' : 'night'
+}
+
+/** Tooltip / screen-reader note for a tile on a public holiday. */
+export function describeHolidays(names: readonly string[]): string {
+  return `Public holiday: ${names.join(', ')}`
 }
 
 /** Tooltip / screen-reader note for a home hour that daylight saving makes special. */

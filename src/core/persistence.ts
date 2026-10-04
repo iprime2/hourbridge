@@ -14,8 +14,10 @@ export const WTB_STORAGE_KEY = 'wtb:state'
  * Bump when the persisted shape changes; add a step in `parsePersistedBuddyState`.
  * v4: working hours may carry `days` (ISO weekdays you work). Older payloads have none, which
  * means Monday–Friday, so v3 and earlier need no data change.
+ * v5: working hours may carry `holidaysOff: false` (you work through public holidays at home).
+ * Older payloads have none, which means holidays are days off, so v4 and earlier need no data change.
  */
-export const PERSIST_VERSION = 4
+export const PERSIST_VERSION = 5
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -65,13 +67,18 @@ function isWorkHours(value: unknown): value is WorkHours {
 
 /**
  * The form working hours are stored and loaded in: `days` is kept only when it differs from
- * Monday–Friday, so a default week looks exactly like it did before `days` existed. A garbled
- * `days` is dropped (back to Monday–Friday) without discarding the hours beside it.
+ * Monday–Friday and `holidaysOff` only when it is `false`, so a default week looks exactly like it
+ * did before either existed. A garbled value is dropped (back to the default) without discarding
+ * the hours beside it.
  */
 export function normalizeWorkHours(hours: WorkHours): WorkHours {
-  const base = { start: hours.start, end: hours.end }
   const days = sanitizeWorkDays(hours.days)
-  return days && !sameDays(days, DEFAULT_WORK_DAYS) ? { ...base, days } : base
+  return {
+    start: hours.start,
+    end: hours.end,
+    ...(days && !sameDays(days, DEFAULT_WORK_DAYS) ? { days } : {}),
+    ...(hours.holidaysOff === false ? { holidaysOff: false } : {})
+  }
 }
 
 /**

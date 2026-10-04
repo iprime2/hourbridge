@@ -326,3 +326,54 @@ describe('persistence v4: working days', () => {
     expect(input.days).toEqual([7, 1])
   })
 })
+
+describe('persistence v5: holidays at home', () => {
+  const base = { locations: DEFAULT_LOCATIONS, timeFormat: '12h' }
+  const load = (workHours: unknown, version = 5) =>
+    parsePersistedBuddyState(JSON.stringify({ ...base, version, workHours }))?.workHours
+  const memoryStorage = () => {
+    const store = new Map<string, string>()
+    return { store, storage: { setItem: (k: string, v: string) => void store.set(k, v) } }
+  }
+
+  it('leaves older payloads alone: no holidaysOff means holidays are days off', () => {
+    expect(load({ start: 9, end: 17 }, 4)).toEqual({ start: 9, end: 17 })
+    expect(load({ start: 9, end: 17, days: [6, 7] }, 4)).toEqual({ start: 9, end: 17, days: [6, 7] })
+  })
+
+  it('keeps "I work through holidays" next to a custom week', () => {
+    expect(load({ start: 9, end: 17, holidaysOff: false })).toEqual({ start: 9, end: 17, holidaysOff: false })
+    expect(load({ start: 9, end: 17, days: [7, 1], holidaysOff: false })).toEqual({
+      start: 9,
+      end: 17,
+      days: [1, 7],
+      holidaysOff: false
+    })
+  })
+
+  it('stores the default (holidays are days off) exactly as it was stored before the setting existed', () => {
+    expect(load({ start: 9, end: 17, holidaysOff: true })).toEqual({ start: 9, end: 17 })
+  })
+
+  it.each([[0], ['no'], [null], [{}], [[]]])('reads a garbled holidaysOff %j as the default', (holidaysOff) => {
+    expect(load({ start: 10, end: 19, holidaysOff })).toEqual({ start: 10, end: 19 })
+  })
+
+  it('round-trips through save and load, and only writes it when it is false', () => {
+    const { store, storage } = memoryStorage()
+    const save = (holidaysOff: boolean) => {
+      savePersistedBuddyState(
+        { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h', workHours: { start: 9, end: 17, holidaysOff } },
+        storage
+      )
+      return JSON.parse(store.get(WTB_STORAGE_KEY)!).workHours
+    }
+    expect(save(true)).toEqual({ start: 9, end: 17 })
+    expect(save(false)).toEqual({ start: 9, end: 17, holidaysOff: false })
+    expect(parsePersistedBuddyState(store.get(WTB_STORAGE_KEY)!)?.workHours).toEqual({
+      start: 9,
+      end: 17,
+      holidaysOff: false
+    })
+  })
+})

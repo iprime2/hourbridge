@@ -8,6 +8,7 @@ import {
 } from '@core/persistence'
 import { normalizeRange, type HourRange } from '@core/planner'
 import { moveItem } from '@core/reorder'
+import { useHolidayLookup } from '@core/useHolidays'
 import { getHomeLocation, type Location } from '@core/timezones'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
 
@@ -45,6 +46,8 @@ export function useTimeBuddyState() {
   }, [locations, timeFormat, theme, workHours])
 
   const home = useMemo(() => getHomeLocation(locations), [locations])
+  /** Public holidays for the cities on screen; a new function whenever a country's data arrives. */
+  const holidays = useHolidayLookup(locations)
 
   const selectedHour = selection ? selection.start : null
   const activeHour = hoveredHour ?? selectedHour
@@ -196,6 +199,7 @@ export function useTimeBuddyState() {
     timeFormat,
     theme,
     workHours,
+    holidays,
     selection,
     selectedHour,
     hoveredHour,
