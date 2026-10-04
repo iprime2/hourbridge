@@ -8,7 +8,9 @@ import {
   computeBuildId,
   finalizeServiceWorker,
   injectIntoServiceWorker,
+  isLazyAsset,
   isPrecacheable,
+  LAZY_ASSET_DIR,
   listFiles
 } from './lib/sw-build'
 
@@ -61,6 +63,16 @@ describe('isPrecacheable', () => {
   })
 })
 
+describe('isLazyAsset', () => {
+  it('is only the per-country holiday files', () => {
+    expect(LAZY_ASSET_DIR).toBe('assets/holidays/')
+    expect(isLazyAsset('assets/holidays/IN-abc.js')).toBe(true)
+    expect(isLazyAsset('assets/index-abc.js')).toBe(false)
+    expect(isLazyAsset('assets/web-abc.js')).toBe(false)
+    expect(isLazyAsset('holidays/IN.js')).toBe(false)
+  })
+})
+
 describe('injectIntoServiceWorker', () => {
   it('produces valid JavaScript that carries the id and list', () => {
     const out = injectIntoServiceWorker(realSource, { buildId: 'abc123', precache: ['./', 'a b.js', 'q"uote.js'] })
@@ -109,6 +121,20 @@ describe('finalizeServiceWorker', () => {
     expect(out).toContain(JSON.stringify(buildId))
     expect(out).toContain('"assets/index-abc.js"')
     expect(out).not.toContain('index-abc.js.map')
+  })
+
+  it('leaves the per-country holiday files out of the install list, but not out of the build id', () => {
+    mkdirSync(join(dir, 'assets', 'holidays'))
+    writeFileSync(join(dir, 'assets', 'holidays', 'IN-abc.js'), 'india')
+    writeFileSync(join(dir, 'assets', 'holidays', 'US-abc.js'), 'usa')
+    const first = finalizeServiceWorker(dir)
+    expect(first.precache).toEqual(['./', 'assets/index-abc.js', 'icon-192.png', 'index.html'])
+    expect(readFileSync(join(dir, 'sw.js'), 'utf8')).not.toContain('holidays/IN-abc.js')
+
+    // New holiday data, even with every other file unchanged, must start a fresh cache.
+    writeFileSync(join(dir, 'sw.js'), realSource)
+    writeFileSync(join(dir, 'assets', 'holidays', 'IN-abc.js'), 'india, edited')
+    expect(finalizeServiceWorker(dir).buildId).not.toBe(first.buildId)
   })
 
   it('gives a different id after any file changes, so the next deploy refreshes the cache', () => {

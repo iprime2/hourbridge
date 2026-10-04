@@ -19,9 +19,21 @@ export function listFiles(dir: string): string[] {
   return out.sort()
 }
 
+/**
+ * Where the per-country public-holiday files are emitted (see vite.web.config.ts). There are
+ * hundreds of them and a visitor needs a handful, so they are not installed up front: the worker's
+ * cache-first rule for /assets/ keeps each one the first time it is used.
+ */
+export const LAZY_ASSET_DIR = 'assets/holidays/'
+
 /** Files the worker must not cache: itself, and source maps (never needed by visitors). */
 export function isPrecacheable(path: string): boolean {
   return path !== 'sw.js' && !path.endsWith('.map')
+}
+
+/** Served, but fetched (and then cached) on demand instead of at install. */
+export function isLazyAsset(path: string): boolean {
+  return path.startsWith(LAZY_ASSET_DIR)
 }
 
 /**
@@ -58,10 +70,11 @@ export function injectIntoServiceWorker(
  */
 export function finalizeServiceWorker(outDir: string): { buildId: string; precache: string[] } {
   const files = listFiles(outDir).filter(isPrecacheable)
+  // The id covers every served file, lazy ones included, so a new holiday file means a new cache.
   const buildId = computeBuildId(
     files.map((path) => ({ path, content: readFileSync(join(outDir, path)) }))
   )
-  const precache = ['./', ...files]
+  const precache = ['./', ...files.filter((path) => !isLazyAsset(path))]
   const swPath = join(outDir, 'sw.js')
   writeFileSync(swPath, injectIntoServiceWorker(readFileSync(swPath, 'utf8'), { buildId, precache }))
   return { buildId, precache }

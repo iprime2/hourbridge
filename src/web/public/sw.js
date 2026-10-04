@@ -8,6 +8,8 @@
  *   - Pages (navigations): network first, so a new deploy shows up on the next visit; cached copy
  *     when offline.
  *   - /assets/*: cache first — the file names contain a content hash, so a cached one never changes.
+ *     The per-country holiday files (/assets/holidays/*) are the exception to "precached": there are
+ *     hundreds and a visitor uses a few, so each is fetched and kept the first time it is needed.
  *   - Everything else same-origin (icons, manifest): stale-while-revalidate.
  *
  * The two placeholders below are replaced by scripts/lib/sw-build.ts after `vite build`; until then

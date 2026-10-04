@@ -152,11 +152,11 @@ async function checkHeaders(origin) {
   record('headers', 'manifest has its own media type', (await get('/manifest.webmanifest')).get('content-type') === 'application/manifest+json')
 }
 
+const launchBrowser = (chromium) =>
+  chromium.launch({ executablePath: chromiumPath(), args: process.getuid?.() === 0 ? ['--no-sandbox'] : [] })
+
 async function checkProfile(chromium, origin, profile, shotsDir) {
-  const browser = await chromium.launch({
-    executablePath: chromiumPath(),
-    args: process.getuid?.() === 0 ? ['--no-sandbox'] : []
-  })
+  const browser = await launchBrowser(chromium)
   const scope = profile.name
   try {
     const context = await browser.newContext(profile.context)
@@ -233,6 +233,76 @@ async function checkProfile(chromium, origin, profile, shotsDir) {
   }
 }
 
+// Republic Day in India, a Monday, 10:00 in Kolkata (the default home city): a public holiday at home.
+const HOLIDAY_MORNING = '2026-01-26T04:30:00Z'
+
+/**
+ * Public holidays are one small file per country, fetched when a city in it is on screen. In real
+ * Chromium that must work under the site's CSP, be kept by the service worker (so it needs no
+ * network next time), and show on the tiles.
+ */
+async function checkHolidays(chromium, origin, profile, shotsDir) {
+  const browser = await launchBrowser(chromium)
+  const scope = profile.name
+  try {
+    const context = await browser.newContext(profile.context)
+    await context.clock.setFixedTime(HOLIDAY_MORNING)
+    const page = await context.newPage()
+    const problems = []
+    page.on('console', (m) => ['error', 'warning'].includes(m.type()) && problems.push(`console.${m.type()}: ${m.text()}`))
+    page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`))
+    page.on('requestfailed', (r) => problems.push(`requestfailed: ${r.url()}`))
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (e) => {
+        ;(window.__csp = window.__csp ?? []).push(`${e.violatedDirective} blocked ${e.blockedURI}`)
+      })
+    })
+    const marked = () => page.waitForSelector('.has-holiday', { timeout: 8000 }).then(() => true, () => false)
+
+    // First load installs the worker; the reload is the first one it controls, so its fetches are kept.
+    await page.goto(`${origin}/`, { waitUntil: 'networkidle' })
+    await page.evaluate(() =>
+      Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((r) => setTimeout(() => r(false), 8000))])
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    record(scope, 'public holidays load and mark the day', await marked())
+    const csp = await page.evaluate(() => window.__csp ?? [])
+    record(scope, 'no console errors, failed requests or CSP violations while loading holidays', problems.length + csp.length === 0, [...problems, ...csp].join(' | '))
+
+    const kept = await page.evaluate(async () => {
+      let count = 0
+      for (const name of await caches.keys()) {
+        for (const request of await (await caches.open(name)).keys()) if (request.url.includes('/assets/holidays/')) count++
+      }
+      return count
+    })
+    // The default cities span a handful of countries; precaching every country's file would be hundreds.
+    record(scope, 'the service worker keeps the holiday files it was asked for, not all of them', kept >= 1 && kept <= 30, `${kept} in the cache`)
+
+    if (shotsDir) {
+      mkdirSync(shotsDir, { recursive: true })
+      for (const scheme of ['light', 'dark']) {
+        await page.emulateMedia({ colorScheme: scheme })
+        await page.waitForTimeout(150)
+        await page.screenshot({ path: join(shotsDir, `${profile.name}-holiday-${scheme}.png`) })
+      }
+      await page.emulateMedia({ colorScheme: null })
+    }
+
+    await context.setOffline(true)
+    let offline = false
+    try {
+      await page.reload({ waitUntil: 'load' })
+      offline = await marked()
+    } catch {
+      // offline stays false
+    }
+    record(scope, 'public holidays still show while offline', offline)
+  } finally {
+    await browser.close()
+  }
+}
+
 const { config, dir, work } = prepareSite()
 const cleanUp = () => work && !flag('keep') && rmSync(work, { recursive: true, force: true })
 const { server, port } = await startServer(dir, config)
@@ -252,7 +322,10 @@ if (flag('serve-only')) {
       }
     }
     await attempt('headers', () => checkHeaders(origin))
-    for (const profile of PROFILES) await attempt(profile.name, () => checkProfile(chromium, origin, profile, option('shots')))
+    for (const profile of PROFILES) {
+      await attempt(profile.name, () => checkProfile(chromium, origin, profile, option('shots')))
+      await attempt(profile.name, () => checkHolidays(chromium, origin, profile, option('shots')))
+    }
   } finally {
     server.close()
     cleanUp()

@@ -103,6 +103,10 @@ describe('strategyFor', () => {
     expect(sw.strategyFor(get('manifest.webmanifest'), SCOPE)).toBe('stale-while-revalidate')
   })
 
+  it('keeps a holiday file the first time it is fetched (cache-first), though it is not installed up front', () => {
+    expect(sw.strategyFor(get('assets/holidays/IN-abc123.js'), SCOPE)).toBe('cache-first')
+  })
+
   it('only treats the assets/ folder as immutable, not look-alikes', () => {
     expect(sw.strategyFor(get('assetsfoo/x.js'), SCOPE)).toBe('stale-while-revalidate')
     expect(sw.strategyFor(get('other/assets/x.js'), SCOPE)).toBe('stale-while-revalidate')
