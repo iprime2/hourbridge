@@ -1,6 +1,6 @@
 # Hourbridge
 
-Timezone planner. Line up any number of cities, see at a glance who is awake or at work, pick a meeting time, and share it.
+**Hourbridge** is a timezone planner. Line up any number of cities, see at a glance who is awake, at work or on a public holiday, pick a meeting time, and share it.
 
 Runs in **any modern browser** (installable, works offline) and as native apps on **macOS**, **Windows** and **iOS** — all from one TypeScript codebase. The web app is the easiest way to use it: nothing to download, nothing to sign, free to host (see [Web app](#web-app)).
 
