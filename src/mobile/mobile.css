@@ -366,6 +366,12 @@ html.is-mobile-ui body {
   padding: 12px;
 }
 
+/* The holiday list sits under the planner inside the same scrolling area. */
+.m-planner .upcoming {
+  margin-top: 8px;
+  padding: 10px 12px 12px;
+}
+
 .m-planner .planner-title {
   width: 100%;
   min-height: 44px;

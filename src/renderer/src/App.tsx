@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Toolbar from '@renderer/components/Toolbar'
 import TimeGrid from '@renderer/components/TimeGrid'
 import PlannerBar from '@ui/PlannerBar'
+import UpcomingHolidays from '@ui/UpcomingHolidays'
 import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { isEditableTarget } from '@ui/browser'
 import { buildTimelineForLocations } from '@core/formatters'
@@ -146,6 +147,8 @@ export default function App() {
         onResize={state.resizeSelection}
         onClear={() => state.selectHour(null)}
       />
+
+      <UpcomingHolidays locations={state.locations} from={state.selectedDate} now={now} />
 
       <footer className="legend" aria-label="Legend">
         <span className="legend-item">

@@ -5,6 +5,7 @@ import {
   loadCountryHolidays,
   lookupHolidays,
   peekCountryHolidays,
+  type CountryHolidays,
   type HolidayLookup
 } from './holidays'
 import type { Location } from './timezones'
@@ -42,4 +43,31 @@ export function useHolidayLookup(locations: readonly Location[]): HolidayLookup 
 
   // `arrived` and `key` are what make a new function: the lookup itself reads the shared cache.
   return useMemo<HolidayLookup>(() => (iana, day) => lookupHolidays(iana, day), [arrived, key])
+}
+
+/**
+ * One country's whole holiday table, for a list rather than a day-by-day lookup: `undefined` while
+ * it loads, `null` when there is none (no data for the country, a zone with no country, or a file
+ * that could not be fetched — `holidayCoverage` tells the first two from the last).
+ */
+export function useCountryHolidays(code: string | null): CountryHolidays | null | undefined {
+  // What arrived for which country, so a change of country never shows the previous one's table.
+  const [arrived, setArrived] = useState<{ code: string; table: CountryHolidays | null } | null>(null)
+  const covered = code !== null && hasHolidayData(code)
+  const cached = covered ? peekCountryHolidays(code) : null
+
+  useEffect(() => {
+    if (!covered || cached !== undefined) return
+    let live = true
+    void loadCountryHolidays(code).then((table) => {
+      if (live) setArrived({ code, table })
+    })
+    return () => {
+      live = false
+    }
+  }, [code, covered, cached])
+
+  if (!covered) return null
+  if (cached !== undefined) return cached
+  return arrived?.code === code ? arrived.table : undefined
 }

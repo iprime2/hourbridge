@@ -104,6 +104,23 @@ export function describeTilePhase(phase: HourPhase, asleep: boolean): string {
   return phase === 'awake' ? 'awake' : 'night'
 }
 
+/** "Mon, Jan 26": a calendar day for a holiday list (the weekday matters when planning around it). */
+export function formatHolidayDate(day: { year: number; month: number; day: number }): string {
+  return DateTime.utc(day.year, day.month, day.day).toLocaleString({
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+/** How far a day is from today, in words: "today", "tomorrow", "in 3 days", "yesterday", "2 days ago". */
+export function describeDaysAway(days: number): string {
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  if (days === -1) return 'yesterday'
+  return days > 0 ? `in ${days} days` : `${-days} days ago`
+}
+
 /** Tooltip / screen-reader note for a tile on a public holiday. */
 export function describeHolidays(names: readonly string[]): string {
   return `Public holiday: ${names.join(', ')}`

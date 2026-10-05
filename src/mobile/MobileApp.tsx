@@ -4,6 +4,7 @@ import CityPicker from '@ui/CityPicker'
 import Logo from '@ui/Logo'
 import PlannerBar from '@ui/PlannerBar'
 import SettingsPanel from '@ui/SettingsPanel'
+import UpcomingHolidays from '@ui/UpcomingHolidays'
 import MobileGrid from '@mobile/MobileGrid'
 import Sheet from '@mobile/Sheet'
 import { hapticSelection, shareMeeting, syncStatusBar } from '@mobile/native'
@@ -173,6 +174,7 @@ export default function MobileApp() {
           onClear={() => state.selectHour(null)}
           onShare={(text, ics, filename) => void onShare(text, ics, filename)}
         />
+        <UpcomingHolidays locations={state.locations} from={state.selectedDate} now={now} />
       </div>
 
       {toast ? (

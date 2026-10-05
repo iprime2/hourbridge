@@ -161,6 +161,52 @@ export function holidayNames(table: CountryHolidays | null | undefined, day: Cal
   return rows.filter(([date]) => date === mmdd).map(([, name]) => name)
 }
 
+/** A calendar day and every public holiday on it. */
+export interface HolidayDay extends CalendarDay {
+  names: string[]
+}
+
+/** Whole calendar days from `a` to `b` (negative when `b` is earlier). No clock or zone involved. */
+export function daysBetween(a: CalendarDay, b: CalendarDay): number {
+  const utc = (d: CalendarDay): number => Date.UTC(d.year, d.month - 1, d.day)
+  return Math.round((utc(b) - utc(a)) / 86_400_000)
+}
+
+/**
+ * The next `count` days that have a public holiday, starting on `from` itself, each with all of
+ * its holidays (two holidays on one day are one entry). Reads only what the table covers, so near
+ * the end of the generated years it can return fewer than `count`, or none.
+ */
+export function upcomingHolidays(
+  table: CountryHolidays | null | undefined,
+  from: CalendarDay,
+  count = 5
+): HolidayDay[] {
+  if (!table || count < 1) return []
+  const years = Object.keys(table).map(Number).filter(Number.isInteger)
+  const last = Math.max(...years)
+  const found: HolidayDay[] = []
+  for (let year = from.year; year <= last && found.length < count; year++) {
+    const rows = table[String(year)]
+    if (!rows) continue
+    const earliest = year === from.year ? `${two(from.month)}-${two(from.day)}` : ''
+    for (const [mmdd, name] of [...rows].sort((a, b) => a[0].localeCompare(b[0]))) {
+      if (mmdd < earliest) continue
+      const previous = found[found.length - 1]
+      const month = Number(mmdd.slice(0, 2))
+      const day = Number(mmdd.slice(3))
+      if (previous && previous.year === year && previous.month === month && previous.day === day) {
+        previous.names.push(name)
+      } else if (found.length < count) {
+        found.push({ year, month, day, names: [name] })
+      } else {
+        break // the next day's holidays are not wanted; this day's are all collected
+      }
+    }
+  }
+  return found
+}
+
 /** A function from (zone, calendar day in that zone) to the holidays there. */
 export type HolidayLookup = (iana: string, day: CalendarDay) => string[]
 

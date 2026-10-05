@@ -1,0 +1,108 @@
+/* Upcoming public holidays — shared by desktop and iOS. Imported by UpcomingHolidays.tsx. */
+
+.upcoming {
+  flex: none;
+  padding: 10px 16px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.upcoming-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+}
+
+.upcoming-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.upcoming-from {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.upcoming-cities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.upcoming-city {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.upcoming-city[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
+/* One row of five on a wide screen; wraps to two or three columns on a phone. */
+.upcoming-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming-item {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.upcoming-date {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.upcoming-name {
+  font-size: 0.85rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.upcoming-away {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.upcoming-away.is-today {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.upcoming-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.upcoming-list + .upcoming-note {
+  margin-top: 6px;
+}

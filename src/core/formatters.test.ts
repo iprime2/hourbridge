@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
 import {
+  describeDaysAway,
   describeHourTransition,
+  formatHolidayDate,
   describeTilePhase,
   formatOffsetHours,
   formatTileTime,
@@ -81,5 +83,22 @@ describe('describeTilePhase', () => {
     expect(describeTilePhase('work', true)).toBe('your working hours, night there')
     expect(describeTilePhase('awake', false)).toBe('awake')
     expect(describeTilePhase('night', true)).toBe('night')
+  })
+})
+
+describe('holiday list wording', () => {
+  it('says how far away a day is, in words', () => {
+    expect(describeDaysAway(0)).toBe('today')
+    expect(describeDaysAway(1)).toBe('tomorrow')
+    expect(describeDaysAway(2)).toBe('in 2 days')
+    expect(describeDaysAway(40)).toBe('in 40 days')
+    expect(describeDaysAway(-1)).toBe('yesterday')
+    expect(describeDaysAway(-3)).toBe('3 days ago')
+  })
+
+  it('writes a day with its weekday, and does not drift with the machine time zone', () => {
+    expect(formatHolidayDate({ year: 2026, month: 1, day: 26 })).toBe('Mon, Jan 26')
+    expect(formatHolidayDate({ year: 2026, month: 12, day: 25 })).toBe('Fri, Dec 25')
+    expect(formatHolidayDate({ year: 2028, month: 2, day: 29 })).toBe('Tue, Feb 29')
   })
 })
