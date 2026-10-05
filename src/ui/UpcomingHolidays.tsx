@@ -1,16 +1,15 @@
-import { useState } from 'react'
 import type { DateTime } from 'luxon'
 import '@ui/upcoming.css'
 import { describeDaysAway, formatHolidayDate } from '@core/formatters'
 import {
-  countryName,
-  countryOfZone,
   coverageNote,
   daysBetween,
   holidayCoverage,
+  holidayGroups,
   HOLIDAY_YEARS,
   upcomingHolidays,
-  type CalendarDay
+  type CalendarDay,
+  type HolidayGroup
 } from '@core/holidays'
 import { getHomeLocation, type Location } from '@core/timezones'
 import { useCountryHolidays } from '@core/useHolidays'
@@ -19,98 +18,93 @@ interface UpcomingHolidaysProps {
   locations: readonly Location[]
   /** The first day to look at: the day the grid is showing. */
   from: CalendarDay
-  /** The current moment, to say how far away each holiday is (in the chosen city's own date). */
+  /** The current moment, to say how far away each holiday is (on each country's own date). */
   now: DateTime
-  /** How many holiday days to list. */
+  /** How many holiday days to list for each country. */
   count?: number
 }
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
-/**
- * The next few public holidays for one city of your choice (your home city to begin with), at the
- * bottom of both layouts. It says plainly when it has nothing to show and why — a country the data
- * does not cover, a file that did not load — rather than an empty list that looks like "no holidays".
- */
-export default function UpcomingHolidays({ locations, from, now, count = 5 }: UpcomingHolidaysProps) {
-  const [chosenId, setChosenId] = useState<string | null>(null)
-  const home = getHomeLocation(locations)
-  const active = locations.find((l) => l.id === chosenId) ?? home
-
-  const code = countryOfZone(active.iana)
-  const coverage = holidayCoverage(code)
-  const country = code ? countryName(code) : null
-  const table = useCountryHolidays(code)
-
-  const there = now.setZone(active.iana)
+/** One country: its cities on the left, its next holidays on the right (or why there are none). */
+function CountryRow({ group, from, now, count }: { group: HolidayGroup; from: CalendarDay; now: DateTime; count: number }) {
+  const table = useCountryHolidays(group.code)
+  const coverage = holidayCoverage(group.code)
+  const there = now.setZone(group.zone)
   const today: CalendarDay = { year: there.year, month: there.month, day: there.day }
   const days = upcomingHolidays(table, from, count)
 
-  let body
+  let message: string | null = null
   if (coverage === 'unknown') {
-    body = `${active.label} is on a timezone that belongs to no country, so it has no public holidays.`
+    message = 'This timezone belongs to no country, so it has no public holidays.'
   } else if (coverage === 'none') {
-    body = `There is no public holiday data for ${country} yet.`
+    message = `No public holiday data for ${group.country} yet.`
   } else if (table === undefined) {
-    body = 'Loading holidays…'
+    message = 'Loading holidays…'
   } else if (table === null) {
-    body = `Could not load the holidays for ${country}. They need a connection the first time.`
+    message = `Could not load the holidays for ${group.country}. They need a connection the first time.`
   } else if (days.length === 0) {
-    body = `No more public holidays after ${formatHolidayDate(from)} in the data, which covers ${HOLIDAY_YEARS[0]}–${HOLIDAY_YEARS[1]}.`
+    message = `No more public holidays after ${formatHolidayDate(from)} in the data, which covers ${HOLIDAY_YEARS[0]}–${HOLIDAY_YEARS[1]}.`
   }
-  const note = coverage === 'partial' ? coverageNote(code) : null
-  const isToday = daysBetween(today, from) === 0
+  const note = coverage === 'partial' ? coverageNote(group.code) : null
+
+  return (
+    <li className="upcoming-row">
+      <div className="upcoming-where">
+        <span className="upcoming-country">{group.country ?? group.cities.join(', ')}</span>
+        {group.country ? <span className="upcoming-cities">{group.cities.join(', ')}</span> : null}
+      </div>
+      <div className="upcoming-what">
+        {message ? (
+          <p className="upcoming-note" role="status">
+            {message}
+          </p>
+        ) : (
+          <ul className="upcoming-days" aria-label={`Next public holidays in ${group.country}`}>
+            {days.map((day) => {
+              const away = daysBetween(today, day)
+              return (
+                <li key={`${day.year}-${day.month}-${day.day}`} className="upcoming-day">
+                  <time className="upcoming-date" dateTime={`${day.year}-${pad(day.month)}-${pad(day.day)}`}>
+                    {formatHolidayDate(day)}
+                  </time>
+                  <span className="upcoming-name">{day.names.join(' · ')}</span>
+                  <span className={['upcoming-away', away === 0 ? 'is-today' : ''].filter(Boolean).join(' ')}>
+                    {describeDaysAway(away)}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {note ? <p className="upcoming-note">{note}</p> : null}
+      </div>
+    </li>
+  )
+}
+
+/**
+ * The next few public holidays of every country on screen, all at once, at the bottom of both
+ * layouts. Each country says plainly when it has nothing to show and why — a country the data does
+ * not cover, a file that did not load — rather than an empty row that looks like "no holidays".
+ */
+export default function UpcomingHolidays({ locations, from, now, count = 3 }: UpcomingHolidaysProps) {
+  const home = getHomeLocation(locations)
+  const homeToday = now.setZone(home.iana)
+  const isToday = daysBetween({ year: homeToday.year, month: homeToday.month, day: homeToday.day }, from) === 0
+  const groups = holidayGroups(locations)
 
   return (
     <section className="upcoming" aria-label="Upcoming public holidays">
       <div className="upcoming-head">
-        <h2 className="upcoming-title">Upcoming holidays{country ? ` in ${country}` : ''}</h2>
+        <h2 className="upcoming-title">Upcoming holidays</h2>
         <span className="upcoming-from">{isToday ? 'from today' : `from ${formatHolidayDate(from)}`}</span>
-        {locations.length > 1 ? (
-          <div className="upcoming-cities" role="group" aria-label="Show holidays for">
-            {locations.map((location) => (
-              <button
-                key={location.id}
-                type="button"
-                className="upcoming-city"
-                aria-pressed={location.id === active.id}
-                onClick={() => setChosenId(location.id)}
-              >
-                {location.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
-
-      {body ? (
-        <p className="upcoming-note" role="status">
-          {body}
-        </p>
-      ) : (
-        <ul className="upcoming-list" aria-label={`Next public holidays in ${country}`}>
-          {days.map((day) => {
-            const away = daysBetween(today, day)
-            return (
-              <li key={`${day.year}-${day.month}-${day.day}`} className="upcoming-item">
-                <time className="upcoming-date" dateTime={`${day.year}-${pad(day.month)}-${pad(day.day)}`}>
-                  {formatHolidayDate(day)}
-                </time>
-                <span className="upcoming-name">{day.names.join(' · ')}</span>
-                <span className={['upcoming-away', away === 0 ? 'is-today' : ''].filter(Boolean).join(' ')}>
-                  {describeDaysAway(away)}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      {note ? (
-        <p className="upcoming-note">
-          <strong>{country}:</strong> {note}
-        </p>
-      ) : null}
+      <ul className="upcoming-rows" aria-label="Upcoming holidays by country">
+        {groups.map((group) => (
+          <CountryRow key={group.key} group={group} from={from} now={now} count={count} />
+        ))}
+      </ul>
     </section>
   )
 }

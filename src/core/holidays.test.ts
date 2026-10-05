@@ -6,6 +6,7 @@ import {
   daysBetween,
   coverageNote,
   hasHolidayData,
+  holidayGroups,
   holidayCoverage,
   holidayNames,
   HOLIDAY_YEARS,
@@ -332,5 +333,46 @@ describe('upcomingHolidays', () => {
     const names = upcomingHolidays(india, on(2026, 1, 27), 5).flatMap((d) => d.names)
     expect(names).toContain('Independence Day')
     expect(names).not.toContain('Republic Day')
+  })
+})
+
+describe('holidayGroups', () => {
+  const city = (label: string, iana: string) => ({ label, iana })
+
+  it('lists each country once, in the order its first city appears, with all its cities', () => {
+    const groups = holidayGroups([
+      city('IST', 'Asia/Kolkata'),
+      city('Miami', 'America/New_York'),
+      city('Tokyo', 'Asia/Tokyo'),
+      city('Los Angeles', 'America/Los_Angeles')
+    ])
+    expect(groups.map((g) => [g.code, g.country, g.cities])).toEqual([
+      ['IN', 'India', ['IST']],
+      ['US', 'United States', ['Miami', 'Los Angeles']],
+      ['JP', 'Japan', ['Tokyo']]
+    ])
+  })
+
+  it('takes "today" from the first city of a country', () => {
+    expect(holidayGroups([city('Miami', 'America/New_York'), city('LA', 'America/Los_Angeles')])[0].zone).toBe('America/New_York')
+  })
+
+  it('treats an alias of a zone as the same country', () => {
+    const groups = holidayGroups([city('Delhi', 'Asia/Calcutta'), city('Mumbai', 'Asia/Kolkata')])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].cities).toEqual(['Delhi', 'Mumbai'])
+  })
+
+  it('keeps a zone with no country, one group per zone, instead of dropping it', () => {
+    const groups = holidayGroups([city('UTC', 'UTC'), city('Also UTC', 'UTC'), city('Offset', 'Etc/GMT+5')])
+    expect(groups.map((g) => [g.key, g.code, g.country, g.cities])).toEqual([
+      ['UTC', null, null, ['UTC', 'Also UTC']],
+      ['Etc/GMT+5', null, null, ['Offset']]
+    ])
+  })
+
+  it('includes a country with no data (its row says so), and is empty for no cities', () => {
+    expect(holidayGroups([city('Kathmandu', 'Asia/Kathmandu')])[0]).toMatchObject({ code: 'NP', country: 'Nepal' })
+    expect(holidayGroups([])).toEqual([])
   })
 })

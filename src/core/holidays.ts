@@ -66,6 +66,36 @@ export function coverageNote(code: string | null): string | null {
   return code ? (partialNotes[code] ?? null) : null
 }
 
+/** The cities on screen that share a country (or, for a zone with no country, a zone). */
+export interface HolidayGroup {
+  /** Stable per group: the country code, or the zone when it belongs to no country. */
+  key: string
+  code: string | null
+  /** The country's name; null for a zone that belongs to none. */
+  country: string | null
+  /** Labels of the cities in the group, in the order they are on screen. */
+  cities: string[]
+  /** The first city's zone, which is where "today" is taken from. */
+  zone: string
+}
+
+/**
+ * Group cities by country so each country is listed once, in the order its first city appears.
+ * Cities on a zone with no country (UTC, Etc/*) are grouped by zone instead of being dropped, so
+ * nothing on screen is silently missing from a holiday list.
+ */
+export function holidayGroups(locations: ReadonlyArray<{ label: string; iana: string }>): HolidayGroup[] {
+  const groups = new Map<string, HolidayGroup>()
+  for (const { label, iana } of locations) {
+    const code = countryOfZone(iana)
+    const key = code ?? iana
+    const group = groups.get(key)
+    if (group) group.cities.push(label)
+    else groups.set(key, { key, code, country: code ? countryName(code) : null, cities: [label], zone: iana })
+  }
+  return [...groups.values()]
+}
+
 export interface CoverageGap {
   code: string
   country: string

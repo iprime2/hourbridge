@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { DateTime } from 'luxon'
 import App from '@renderer/App'
 import UpcomingHolidays from '@ui/UpcomingHolidays'
@@ -10,7 +9,8 @@ import type { Location } from '@core/timezones'
 
 const IST: Location = { id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true }
 const TOKYO: Location = { id: 'tokyo', label: 'Tokyo', iana: 'Asia/Tokyo' }
-const NEW_YORK: Location = { id: 'ny', label: 'New York', iana: 'America/New_York' }
+const MIAMI: Location = { id: 'miami', label: 'Miami', iana: 'America/New_York' }
+const LA: Location = { id: 'la', label: 'Los Angeles', iana: 'America/Los_Angeles' }
 const KATHMANDU: Location = { id: 'ktm', label: 'Kathmandu', iana: 'Asia/Kathmandu' }
 const UTC: Location = { id: 'utc', label: 'UTC', iana: 'UTC' }
 
@@ -27,7 +27,12 @@ const tables: Record<string, CountryHolidays> = {
     ],
     '2027': [['01-26', 'Republic Day']]
   },
-  JP: { '2026': [['01-12', 'Coming of Age Day'], ['02-11', 'Foundation Day']] },
+  JP: {
+    '2026': [
+      ['01-12', 'Coming of Age Day'],
+      ['02-11', 'Foundation Day']
+    ]
+  },
   US: { '2026': [['07-04', 'Independence Day']] }
 }
 
@@ -36,116 +41,135 @@ const now = DateTime.fromISO('2026-01-26T10:00:00', { zone: 'Asia/Kolkata' })
 const from = { year: 2026, month: 1, day: 26 }
 
 function setup(props: Partial<React.ComponentProps<typeof UpcomingHolidays>> = {}) {
-  return render(<UpcomingHolidays locations={[IST, TOKYO, NEW_YORK]} from={from} now={now} {...props} />)
+  return render(<UpcomingHolidays locations={[IST, TOKYO, MIAMI]} from={from} now={now} {...props} />)
 }
-const items = () => within(screen.getByRole('list')).getAllByRole('listitem')
+/** The row for a country, by the name in its left-hand column. */
+const row = (country: string) => screen.getByText(country, { selector: '.upcoming-country' }).closest('li') as HTMLElement
+const pills = (country: string) => within(row(country)).queryAllByRole('listitem').map((li) => li.textContent)
 
-describe('UpcomingHolidays', () => {
+describe('UpcomingHolidays — every country at once', () => {
   beforeEach(() => setHolidayLoader(async (code) => tables[code] ?? null))
 
-  it('lists the next five holiday days of the home country first, with how far away each is', async () => {
+  it('lists each country on screen in the same panel, with no picker to switch between them', async () => {
     setup()
-    expect(screen.getByRole('heading', { name: 'Upcoming holidays in India' })).toBeInTheDocument()
-    expect(screen.getByText('from today')).toBeInTheDocument()
-    await waitFor(() => expect(items()).toHaveLength(5))
-    expect(items().map((li) => li.textContent)).toEqual([
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getAllByText(/./, { selector: '.upcoming-country' }).map((e) => e.textContent)).toEqual([
+      'India',
+      'Japan',
+      'United States'
+    ])
+    // They all load without anyone choosing anything.
+    await waitFor(() => expect(pills('India')).toHaveLength(3))
+    await waitFor(() => expect(pills('Japan')).toHaveLength(1))
+    await waitFor(() => expect(pills('United States')).toHaveLength(1))
+  })
+
+  it('shows each country’s next holidays with weekday, date, name and how far away', async () => {
+    setup()
+    await waitFor(() => expect(pills('India')).toHaveLength(3))
+    expect(pills('India')).toEqual([
       'Mon, Jan 26Republic Daytoday',
       'Tue, Mar 3Fake Festival · Second Fakein 36 days',
-      'Sat, Aug 15Independence Dayin 201 days',
-      'Fri, Oct 2Gandhi Jayantiin 249 days',
-      'Fri, Dec 25Christmas Dayin 333 days'
+      'Sat, Aug 15Independence Dayin 201 days'
     ])
+    await waitFor(() => expect(pills('Japan')).toEqual(['Wed, Feb 11Foundation Dayin 16 days'])) // Jan 12 is behind us
   })
 
-  it('marks the dates for assistive technology and highlights today', async () => {
-    setup()
-    await waitFor(() => expect(items()).toHaveLength(5))
-    expect(items()[0].querySelector('time')).toHaveAttribute('datetime', '2026-01-26')
-    expect(items()[0].querySelector('.upcoming-away')).toHaveClass('is-today')
-    expect(items()[1].querySelector('.upcoming-away')).not.toHaveClass('is-today')
+  it('names the cities of each country, and puts two cities of one country in one row', async () => {
+    setup({ locations: [IST, MIAMI, TOKYO, LA] })
+    expect(within(row('United States')).getByText('Miami, Los Angeles')).toBeInTheDocument()
+    expect(screen.getAllByText(/./, { selector: '.upcoming-country' })).toHaveLength(3)
+    await waitFor(() => expect(pills('United States')).toHaveLength(1))
   })
 
-  it('switches city and lists that city’s country instead', async () => {
-    const user = userEvent.setup()
-    setup()
-    await waitFor(() => expect(items()).toHaveLength(5))
-    await user.click(screen.getByRole('button', { name: 'Tokyo' }))
-    expect(screen.getByRole('heading', { name: 'Upcoming holidays in Japan' })).toBeInTheDocument()
-    await waitFor(() => expect(items()).toHaveLength(1))
-    expect(items()[0]).toHaveTextContent('Foundation Day')
-    expect(screen.getByRole('button', { name: 'Tokyo' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'IST' })).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it("says how far away a holiday is on the chosen city's own date, not the home date", async () => {
-    // From the 25th in New York (still Sunday there) a holiday on the 26th is tomorrow, not today.
-    const user = userEvent.setup()
+  it("counts days away on each country's own date, side by side", async () => {
+    // The same holiday on 26 January: today in Kolkata, but tomorrow in New York (still the 25th there).
     setHolidayLoader(async () => ({ '2026': [['01-26', 'Some Day']] }))
+    setup({ locations: [IST, MIAMI] })
+    await waitFor(() => expect(pills('India')).toEqual(['Mon, Jan 26Some Daytoday']))
+    await waitFor(() => expect(pills('United States')).toEqual(['Mon, Jan 26Some Daytomorrow']))
+  })
+
+  it('highlights a holiday that is today, only today’s', async () => {
     setup()
-    await waitFor(() => expect(items()[0]).toHaveTextContent('today'))
-    await user.click(screen.getByRole('button', { name: 'New York' }))
-    await waitFor(() => expect(items()[0]).toHaveTextContent('tomorrow'))
+    await waitFor(() => expect(pills('India')).toHaveLength(3))
+    const away = within(row('India')).getAllByText(/today|in \d+ days/, { selector: '.upcoming-away' })
+    expect(away.map((e) => e.classList.contains('is-today'))).toEqual([true, false, false])
+  })
+
+  it('marks the dates for assistive technology', async () => {
+    setup()
+    await waitFor(() => expect(pills('India')).toHaveLength(3))
+    expect(within(row('India')).getAllByText(/./, { selector: 'time' })[0]).toHaveAttribute('datetime', '2026-01-26')
+    expect(within(row('India')).getByRole('list', { name: 'Next public holidays in India' })).toBeInTheDocument()
   })
 
   it('starts from the day the grid shows, and says so when that is not today', async () => {
     setup({ from: { year: 2026, month: 8, day: 1 } })
     expect(screen.getByText('from Sat, Aug 1')).toBeInTheDocument()
-    await waitFor(() => expect(items()[0]).toHaveTextContent('Independence Day'))
-    expect(items()).toHaveLength(4) // Aug 15, Oct 2, Dec 25, then the 2027 Republic Day
+    await waitFor(() => expect(pills('India')).toHaveLength(3)) // Aug 15, Oct 2, Dec 25
+    expect(pills('India')[0]).toContain('Independence Day')
   })
 
-  it('warns that India is partial, under the list, and only for a partial country', async () => {
-    const user = userEvent.setup()
+  it('says "from today" when the grid shows today', () => {
+    setup()
+    expect(screen.getByText('from today')).toBeInTheDocument()
+  })
+
+  it('warns that India is partial, in India’s row only', async () => {
     setup()
     expect(await screen.findByText(/Holi, Diwali and Eid/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Tokyo' }))
-    await waitFor(() => expect(screen.queryByText(/Holi, Diwali and Eid/)).toBeNull())
+    expect(within(row('India')).getByText(/Holi, Diwali and Eid/)).toBeInTheDocument()
+    expect(within(row('Japan')).queryByText(/Holi, Diwali and Eid/)).toBeNull()
   })
 
-  it('says there is no data for a country the source does not cover', async () => {
-    const user = userEvent.setup()
-    setup({ locations: [IST, KATHMANDU] })
-    await user.click(screen.getByRole('button', { name: 'Kathmandu' }))
-    expect(screen.getByRole('heading', { name: 'Upcoming holidays in Nepal' })).toBeInTheDocument()
-    expect(screen.getByText('There is no public holiday data for Nepal yet.')).toBeInTheDocument()
-    expect(screen.queryByRole('list')).toBeNull()
+  it('says, in its own row, that a country has no data — while the others still list theirs', async () => {
+    setup({ locations: [IST, KATHMANDU, TOKYO] })
+    expect(within(row('Nepal')).getByText('No public holiday data for Nepal yet.')).toBeInTheDocument()
+    expect(within(row('Nepal')).queryByRole('list')).toBeNull()
+    await waitFor(() => expect(pills('India')).toHaveLength(3))
   })
 
-  it('says a timezone with no country has no public holidays', async () => {
-    const user = userEvent.setup()
+  it('keeps a timezone with no country in the list, and says it has no public holidays', () => {
     setup({ locations: [IST, UTC] })
-    await user.click(screen.getByRole('button', { name: 'UTC' }))
-    expect(screen.getByRole('heading', { name: 'Upcoming holidays' })).toBeInTheDocument()
-    expect(screen.getByText(/UTC is on a timezone that belongs to no country/)).toBeInTheDocument()
+    const utc = screen.getByText('UTC', { selector: '.upcoming-country' }).closest('li') as HTMLElement
+    expect(within(utc).getByText(/belongs to no country, so it has no public holidays/)).toBeInTheDocument()
   })
 
-  it('shows that it is loading, and then that it could not load, instead of an empty list', async () => {
-    setHolidayLoader(async () => {
-      throw new Error('offline')
+  it('shows loading, then a failure only for the country whose file did not load', async () => {
+    setHolidayLoader(async (code) => {
+      if (code === 'IN') throw new Error('offline')
+      return tables[code] ?? null
     })
-    setup()
-    expect(screen.getByText('Loading holidays…')).toBeInTheDocument()
-    expect(await screen.findByText(/Could not load the holidays for India/)).toBeInTheDocument()
-    expect(screen.queryByRole('list')).toBeNull()
+    setup({ locations: [IST, TOKYO] })
+    expect(within(row('India')).getByText('Loading holidays…')).toBeInTheDocument()
+    expect(await within(row('India')).findByText(/Could not load the holidays for India/)).toBeInTheDocument()
+    await waitFor(() => expect(pills('Japan')).toEqual(['Wed, Feb 11Foundation Dayin 16 days']))
   })
 
   it('says so, with the data range, when the data has nothing after the chosen day', async () => {
-    setup({ from: { year: 2031, month: 1, day: 1 } })
-    expect(await screen.findByText(/No more public holidays after Wed, Jan 1 in the data, which covers 20\d\d–20\d\d\./)).toBeInTheDocument()
+    setup({ from: { year: 2031, month: 1, day: 1 }, locations: [IST, TOKYO] })
+    expect(await within(row('India')).findByText(/No more public holidays after Wed, Jan 1 in the data, which covers 20\d\d–20\d\d\./)).toBeInTheDocument()
+    expect(await within(row('Japan')).findByText(/No more public holidays after/)).toBeInTheDocument()
   })
 
-  it('has no city picker when there is only one city, and names the country', async () => {
+  it('works with a single city', async () => {
     setup({ locations: [IST] })
-    expect(screen.queryByRole('group', { name: 'Show holidays for' })).toBeNull()
-    await waitFor(() => expect(items()).toHaveLength(5))
+    expect(screen.getAllByText(/./, { selector: '.upcoming-country' })).toHaveLength(1)
+    await waitFor(() => expect(pills('India')).toHaveLength(3))
   })
 
-  it('falls back to home when the chosen city is removed', async () => {
-    const user = userEvent.setup()
-    const view = setup()
-    await user.click(screen.getByRole('button', { name: 'Tokyo' }))
-    view.rerender(<UpcomingHolidays locations={[IST, NEW_YORK]} from={from} now={now} />)
-    expect(screen.getByRole('heading', { name: 'Upcoming holidays in India' })).toBeInTheDocument()
+  it('lists as many days per country as it is asked for', async () => {
+    setup({ locations: [IST], count: 5 })
+    await waitFor(() => expect(pills('India')).toHaveLength(5))
+  })
+
+  it('follows the cities: a country appears when its city is added and goes when it is removed', async () => {
+    const view = setup({ locations: [IST] })
+    view.rerender(<UpcomingHolidays locations={[IST, TOKYO]} from={from} now={now} />)
+    expect(row('Japan')).toBeInTheDocument()
+    view.rerender(<UpcomingHolidays locations={[IST]} from={from} now={now} />)
+    expect(screen.queryByText('Japan', { selector: '.upcoming-country' })).toBeNull()
   })
 })
 
@@ -155,12 +179,13 @@ describe('the upcoming holidays in the app', () => {
     setHolidayLoader(async (code) => tables[code] ?? null)
   })
 
-  it('sits at the bottom of the desktop layout, for the home country to begin with', async () => {
+  it('sits at the bottom of the desktop layout, after the planner and before the legend, with every default country', async () => {
     render(<App />)
     const panel = screen.getByRole('region', { name: 'Upcoming public holidays' })
-    expect(within(panel).getByRole('heading', { name: 'Upcoming holidays in India' })).toBeInTheDocument()
-    await waitFor(() => expect(within(panel).getAllByRole('listitem').length).toBeGreaterThan(0))
-    // After the planner, before the legend.
+    const countries = within(panel).getAllByText(/./, { selector: '.upcoming-country' }).map((e) => e.textContent)
+    // In the order of the default cities (Miami, IST, AEST, London, Tokyo); names are the tz database's.
+    expect(countries).toEqual(['United States', 'India', 'Australia', 'Britain (UK)', 'Japan'])
+    await waitFor(() => expect(within(panel).getAllByRole('listitem').length).toBeGreaterThan(countries.length))
     const planner = screen.getByRole('region', { name: 'Meeting planner' })
     const legend = screen.getByRole('contentinfo', { name: 'Legend' })
     expect(planner.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

@@ -372,6 +372,27 @@ html.is-mobile-ui body {
   padding: 10px 12px 12px;
 }
 
+/* The planner area already scrolls, so the list needs no scroll of its own; countries stack. */
+.m-planner .upcoming {
+  min-height: 0;
+}
+
+.m-planner .upcoming-rows {
+  background: none;
+}
+
+.m-planner .upcoming-row {
+  grid-template-columns: 1fr;
+}
+
+.m-planner .upcoming-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding-top: 0;
+}
+
 .m-planner .planner-title {
   width: 100%;
   min-height: 44px;
