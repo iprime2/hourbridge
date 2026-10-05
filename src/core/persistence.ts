@@ -11,12 +11,6 @@ import { DEFAULT_LOCATIONS, HOME_TIMEZONE, type Location } from '@core/timezones
 export const HB_STORAGE_KEY = 'hb:state'
 
 /**
- * Where the state was kept before the app was renamed. It is read when the current key is empty
- * and removed by the next save, so nobody loses their cities and settings to the rename.
- */
-const LEGACY_STORAGE_KEY = 'wtb:state'
-
-/**
  * Bump when the persisted shape changes; add a step in `parsePersistedState`.
  * v4: working hours may carry `days` (ISO weekdays you work). Older payloads have none, which
  * means Monday–Friday, so v3 and earlier need no data change.
@@ -178,7 +172,7 @@ export function loadPersistedState(
 ): PersistedState | null {
   if (!storage) return null
   try {
-    return parsePersistedState(storage.getItem(HB_STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY))
+    return parsePersistedState(storage.getItem(HB_STORAGE_KEY))
   } catch {
     return null
   }
@@ -212,7 +206,7 @@ export function subscribePersist(listener: PersistListener): () => void {
 
 export function savePersistedState(
   state: PersistedState,
-  storage: (Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'removeItem'>>) | null = safeStorage()
+  storage: Pick<Storage, 'setItem'> | null = safeStorage()
 ): void {
   const json = JSON.stringify({
     ...state,
@@ -221,7 +215,6 @@ export function savePersistedState(
   })
   try {
     storage?.setItem(HB_STORAGE_KEY, json)
-    storage?.removeItem?.(LEGACY_STORAGE_KEY)
   } catch {
     // Quota exceeded / storage blocked: keep running with in-memory state.
     return

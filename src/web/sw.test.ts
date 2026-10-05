@@ -187,17 +187,6 @@ describe('installing a built site (with a real precache list)', () => {
     await built.onActivate(caches)
     expect(await caches.keys()).toEqual(['hb-testbuild'])
   })
-
-  it('also removes caches left by the app’s old name, and leaves caches that are not ours alone', async () => {
-    const caches = new FakeCaches()
-    await caches.open('wtb-oldbuild') // what versions before the rename called their cache
-    await caches.open('hb-previous')
-    await caches.open('some-other-app')
-    const built = load(['./'])
-    await built.onInstall(caches, SCOPE)
-    await built.onActivate(caches)
-    expect((await caches.keys()).sort()).toEqual(['hb-testbuild', 'some-other-app'])
-  })
 })
 
 describe('navigation (pages): network first, cached copy offline', () => {
