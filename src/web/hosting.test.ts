@@ -111,7 +111,7 @@ describe('web app manifest and icons', () => {
   const manifest = json('src/web/public/manifest.webmanifest')
 
   it('describes an installable standalone app', () => {
-    expect(manifest.name).toBe('World Time Buddy')
+    expect(manifest.name).toBe('Hourbridge')
     expect(manifest.display).toBe('standalone')
     expect(manifest.start_url).toBe('./')
     expect(manifest.scope).toBe('./') // relative, so it works at a domain root or a sub-path

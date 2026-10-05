@@ -78,7 +78,7 @@ describe('ICS', () => {
     expect(lines).toContain('DTEND:20240115T103000Z')
     expect(lines).toContain('DTSTAMP:20240110T080000Z')
     expect(lines).toContain('SUMMARY:Sprint sync')
-    expect(lines).toContain('UID:20240115T093000Z@worldtimebuddy.app')
+    expect(lines).toContain('UID:20240115T093000Z@hourbridge.app')
     expect(ics.endsWith('END:VCALENDAR\r\n')).toBe(true)
     expect(ics).not.toMatch(/[^\r]\n/)
   })

@@ -67,7 +67,7 @@ function prepareSite() {
   if (execSync('git status --porcelain', { cwd: root, encoding: 'utf8' }).trim()) {
     console.warn('note: --clean builds the last commit; uncommitted changes are not included.')
   }
-  const work = mkdtempSync(join(tmpdir(), 'wtb-preflight-'))
+  const work = mkdtempSync(join(tmpdir(), 'hb-preflight-'))
   try {
     execSync(`git archive HEAD | tar -x -C "${work}"`, { cwd: root, stdio: 'inherit' })
     const config = JSON.parse(readFileSync(join(work, 'vercel.json'), 'utf8'))
@@ -103,7 +103,7 @@ function startServer(dir, config) {
 
 function loadPlaywright() {
   const require = createRequire(import.meta.url)
-  const places = [process.env.WTB_PLAYWRIGHT_DIR, root, join(tmpdir(), 'wtb-playwright')].filter(Boolean)
+  const places = [process.env.HB_PLAYWRIGHT_DIR, root, join(tmpdir(), 'hb-playwright')].filter(Boolean)
   for (const place of places) {
     for (const name of ['playwright-core', 'playwright']) {
       try {
@@ -115,8 +115,8 @@ function loadPlaywright() {
   }
   console.error(
     'Playwright not found. It is not a project dependency; install it outside the repo:\n' +
-      `  npm i --no-save --no-audit --no-fund --prefix "${join(tmpdir(), 'wtb-playwright')}" playwright-core\n` +
-      '(or point WTB_PLAYWRIGHT_DIR at a folder whose node_modules has it)'
+      `  npm i --no-save --no-audit --no-fund --prefix "${join(tmpdir(), 'hb-playwright')}" playwright-core\n` +
+      '(or point HB_PLAYWRIGHT_DIR at a folder whose node_modules has it)'
   )
   process.exit(2)
 }

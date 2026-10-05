@@ -11,7 +11,7 @@ export interface MenuActions {
   setTrayEnabled: (enabled: boolean) => void
 }
 
-const REPO_URL = 'https://github.com/iprime2/world-time-buddy'
+const REPO_URL = 'https://github.com/iprime2/hourbridge'
 
 /**
  * Native application menu. macOS gets the standard app menu (About / Hide / Quit); every
@@ -84,7 +84,7 @@ export function buildAppMenu(actions: MenuActions): Menu {
     { role: 'windowMenu' },
     {
       role: 'help',
-      submenu: [{ label: 'World Time Buddy on GitHub', click: () => void shell.openExternal(REPO_URL) }]
+      submenu: [{ label: 'Hourbridge on GitHub', click: () => void shell.openExternal(REPO_URL) }]
     }
   ]
 

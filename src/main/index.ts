@@ -109,7 +109,7 @@ function createWindow(): BrowserWindow {
     minWidth: 820,
     minHeight: 520,
     show: false,
-    title: 'World Time Buddy',
+    title: 'Hourbridge',
     ...(isMac
       ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 14 } }
       : {}),
@@ -152,7 +152,7 @@ function createWidgetWindow(): BrowserWindow {
     resizable: true,
     alwaysOnTop: true,
     skipTaskbar: false,
-    title: 'World Time Buddy Widget',
+    title: 'Hourbridge Widget',
     webPreferences: secureWebPreferences
   })
   widgetWindow = win
@@ -191,7 +191,7 @@ function withMainWindow(fn: (win: BrowserWindow) => void): void {
 }
 
 function sendCommand(command: MenuCommand): void {
-  withMainWindow((win) => win.webContents.send('wtb:menu-command', command))
+  withMainWindow((win) => win.webContents.send('hb:menu-command', command))
 }
 
 function toggleWidget(): void {
@@ -210,22 +210,22 @@ const menuBarClock = new MenuBarClock({
 /* —— IPC —— */
 
 function registerIpc(): void {
-  ipcMain.handle('wtb:open-widget', (event) => {
+  ipcMain.handle('hb:open-widget', (event) => {
     assertTrusted(event)
     createWidgetWindow()
   })
 
-  ipcMain.handle('wtb:close-widget', (event) => {
+  ipcMain.handle('hb:close-widget', (event) => {
     assertTrusted(event)
     if (widgetWindow && !widgetWindow.isDestroyed()) widgetWindow.close()
   })
 
-  ipcMain.handle('wtb:focus-main', (event) => {
+  ipcMain.handle('hb:focus-main', (event) => {
     assertTrusted(event)
     withMainWindow(() => undefined)
   })
 
-  ipcMain.handle('wtb:set-always-on-top', (event, value: unknown) => {
+  ipcMain.handle('hb:set-always-on-top', (event, value: unknown) => {
     assertTrusted(event)
     if (typeof value !== 'boolean') throw new TypeError('Expected a boolean')
     if (widgetWindow && !widgetWindow.isDestroyed()) {
@@ -234,13 +234,13 @@ function registerIpc(): void {
     return value
   })
 
-  ipcMain.handle('wtb:get-always-on-top', (event) => {
+  ipcMain.handle('hb:get-always-on-top', (event) => {
     assertTrusted(event)
     if (widgetWindow && !widgetWindow.isDestroyed()) return widgetWindow.isAlwaysOnTop()
     return true
   })
 
-  ipcMain.handle('wtb:publish-state', (event, payload: unknown) => {
+  ipcMain.handle('hb:publish-state', (event, payload: unknown) => {
     assertTrusted(event)
     const state = parsePublishedState(payload)
     if (!state) throw new TypeError('Invalid state payload')
@@ -269,9 +269,9 @@ if (!app.requestSingleInstanceLock()) {
     session.defaultSession.setPermissionCheckHandler((_contents, permission) => allow(permission))
 
     app.setAboutPanelOptions({
-      applicationName: 'World Time Buddy',
+      applicationName: 'Hourbridge',
       applicationVersion: app.getVersion(),
-      copyright: 'World Time Buddy'
+      copyright: 'Hourbridge'
     })
 
     registerIpc()

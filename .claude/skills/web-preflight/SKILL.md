@@ -25,10 +25,10 @@ It exits 0 only if every check passes and prints `PASS`/`FAIL` per check with th
 Playwright is not a project dependency (keep it that way). The Claude cloud sandbox already has one on `NODE_PATH`. Elsewhere:
 
 ```bash
-npm i --no-save --no-audit --no-fund --prefix "${TMPDIR:-/tmp}/wtb-playwright" playwright-core
+npm i --no-save --no-audit --no-fund --prefix "${TMPDIR:-/tmp}/hb-playwright" playwright-core
 ```
 
-The script looks in `$WTB_PLAYWRIGHT_DIR`, the repo, then that folder. It uses `$CHROME_PATH`, else a Chromium under `$PLAYWRIGHT_BROWSERS_PATH`, else Playwright's own. As root it adds `--no-sandbox`.
+The script looks in `$HB_PLAYWRIGHT_DIR`, the repo, then that folder. It uses `$CHROME_PATH`, else a Chromium under `$PLAYWRIGHT_BROWSERS_PATH`, else Playwright's own. As root it adds `--no-sandbox`.
 
 ## Using it
 

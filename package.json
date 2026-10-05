@@ -1,9 +1,9 @@
 {
-  "name": "world-time-buddy",
+  "name": "hourbridge",
   "version": "0.1.6",
-  "description": "World Time Buddy — timezone planner for macOS, Windows and iOS",
+  "description": "Hourbridge — timezone planner for macOS, Windows and iOS",
   "main": "./out/main/index.js",
-  "author": "World Time Buddy",
+  "author": "Hourbridge",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",

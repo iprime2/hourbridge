@@ -82,7 +82,7 @@ describe('injectIntoServiceWorker', () => {
     expect(out).not.toContain("['__PRECACHE__']")
     const sandbox = { module: { exports: {} as Record<string, unknown> }, URL, Response, Request }
     runInNewContext(out, sandbox) // throws on a syntax error
-    expect(sandbox.module.exports.CACHE_NAME).toBe('wtb-abc123')
+    expect(sandbox.module.exports.CACHE_NAME).toBe('hb-abc123')
     expect((sandbox.module.exports.precacheUrls as (s: string) => string[])('https://h/')).toEqual([
       'https://h/',
       'https://h/a%20b.js',
@@ -100,7 +100,7 @@ describe('injectIntoServiceWorker', () => {
 describe('finalizeServiceWorker', () => {
   let dir: string
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'wtb-sw-'))
+    dir = mkdtempSync(join(tmpdir(), 'hb-sw-'))
     mkdirSync(join(dir, 'assets'))
     writeFileSync(join(dir, 'index.html'), '<html></html>')
     writeFileSync(join(dir, 'assets', 'index-abc.js'), 'js')

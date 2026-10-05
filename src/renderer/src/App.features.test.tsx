@@ -6,7 +6,7 @@ import App from '@renderer/App'
 import TimeGrid from '@renderer/components/TimeGrid'
 import { DateTime } from 'luxon'
 import { DEFAULT_LOCATIONS } from '@core/timezones'
-import { WTB_STORAGE_KEY } from '@core/persistence'
+import { HB_STORAGE_KEY } from '@core/persistence'
 
 const row = (name: RegExp) => screen.getByLabelText(name)
 const tile = (label: RegExp, hour: number) =>
@@ -16,11 +16,11 @@ const rowLabels = () =>
 
 describe('App — planning, shortcuts and settings', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
     document.documentElement.removeAttribute('data-theme')
   })
   afterEach(() => {
-    window.wtb = undefined
+    window.hb = undefined
   })
 
   it('selects a range by dragging across tiles and shows it in the planner', () => {
@@ -139,7 +139,7 @@ describe('App — planning, shortcuts and settings', () => {
     await user.click(screen.getByRole('button', { name: 'Settings' }))
     await user.click(screen.getByRole('radio', { name: 'Dark' }))
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
-    expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).theme).toBe('dark')
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).theme).toBe('dark')
 
     await user.click(screen.getByRole('radio', { name: 'System' }))
     expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
@@ -294,7 +294,7 @@ describe('App — planning, shortcuts and settings', () => {
       expect(workHoursOf('IST')).toEqual(nineToFive)
 
       // It is saved, in order, and the hours beside it are untouched.
-      expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).workHours).toEqual({
+      expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).workHours).toEqual({
         start: 9,
         end: 17,
         days: [1, 2, 3, 6, 7]
@@ -308,7 +308,7 @@ describe('App — planning, shortcuts and settings', () => {
       await user.click(screen.getByRole('button', { name: 'Wednesday' })) // today is a Wednesday
       expect(workHoursOf('IST')).toEqual([]) // now a day off
       await user.selectOptions(screen.getByLabelText('Working hours start'), '10')
-      expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).workHours).toEqual({
+      expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).workHours).toEqual({
         start: 10,
         end: 17,
         days: [1, 2, 4, 5]
@@ -334,7 +334,7 @@ describe('App — planning, shortcuts and settings', () => {
 
     expect(row(/Team UK timezone row/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/^London timezone row/i)).toBeNull()
-    const saved = JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!)
+    const saved = JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!)
     expect(saved.locations.find((l: { id: string }) => l.id === 'london').label).toBe('Team UK')
   })
 
@@ -400,9 +400,9 @@ describe('App — planning, shortcuts and settings', () => {
 
   describe('Electron integration', () => {
     it('handles native menu commands', () => {
-      let handler: ((c: WtbMenuCommand) => void) | undefined
+      let handler: ((c: HbMenuCommand) => void) | undefined
       const unsubscribe = vi.fn()
-      window.wtb = {
+      window.hb = {
         openWidget: vi.fn(async () => undefined),
         closeWidget: vi.fn(async () => undefined),
         focusMain: vi.fn(async () => undefined),
@@ -431,14 +431,14 @@ describe('App — planning, shortcuts and settings', () => {
     it('publishes the locations, format and theme for the menu-bar clock', async () => {
       const user = userEvent.setup()
       const publishState = vi.fn(async (_state: unknown) => undefined)
-      window.wtb = {
+      window.hb = {
         openWidget: vi.fn(),
         closeWidget: vi.fn(),
         focusMain: vi.fn(),
         setAlwaysOnTop: vi.fn(),
         getAlwaysOnTop: vi.fn(),
         publishState
-      } as unknown as typeof window.wtb
+      } as unknown as typeof window.hb
       render(<App />)
 
       expect(publishState).toHaveBeenCalled()
@@ -457,7 +457,7 @@ describe('App — planning, shortcuts and settings', () => {
     })
 
     it('works with no Electron bridge at all (plain browser)', () => {
-      window.wtb = undefined
+      window.hb = undefined
       expect(() => render(<App />)).not.toThrow()
     })
   })
@@ -466,14 +466,14 @@ describe('App — planning, shortcuts and settings', () => {
 
 describe('App — drag-and-drop reordering', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
   })
 
   const handle = (label: string) => screen.getByRole('button', { name: `Reorder ${label}` })
   const order = () =>
     screen.getAllByLabelText(/ timezone row$/).map((el) => el.getAttribute('aria-label')!.replace(' timezone row', ''))
   const savedOrder = () =>
-    (JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).locations as { label: string }[]).map((l) => l.label)
+    (JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).locations as { label: string }[]).map((l) => l.label)
 
   /** jsdom has no DataTransfer or layout, so supply both. */
   const transfer = () => ({ setData: vi.fn(), setDragImage: vi.fn(), effectAllowed: '', dropEffect: '' })

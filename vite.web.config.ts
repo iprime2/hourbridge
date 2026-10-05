@@ -8,7 +8,7 @@ const outDir = resolve('dist-web')
 /** After the files are written, stamp the emitted file list and a content hash into dist's sw.js. */
 function serviceWorker(): Plugin {
   return {
-    name: 'wtb-service-worker',
+    name: 'hb-service-worker',
     apply: 'build',
     enforce: 'post',
     // writeBundle (not closeBundle) so a failed build reports its own error instead of ours.

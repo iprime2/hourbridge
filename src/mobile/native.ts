@@ -8,7 +8,7 @@ import { Haptics } from '@capacitor/haptics'
 import { Preferences } from '@capacitor/preferences'
 import { Share } from '@capacitor/share'
 import { StatusBar, Style } from '@capacitor/status-bar'
-import { subscribePersist, WTB_STORAGE_KEY, type ThemePreference } from '@core/persistence'
+import { subscribePersist, HB_STORAGE_KEY, type ThemePreference } from '@core/persistence'
 import { copyText } from '@ui/browser'
 
 export const isNative = (): boolean => Capacitor.isNativePlatform()
@@ -20,9 +20,9 @@ export const isNative = (): boolean => Capacitor.isNativePlatform()
 export async function restoreStateFromNative(): Promise<void> {
   if (!isNative()) return
   try {
-    if (localStorage.getItem(WTB_STORAGE_KEY)) return
-    const { value } = await Preferences.get({ key: WTB_STORAGE_KEY })
-    if (value) localStorage.setItem(WTB_STORAGE_KEY, value)
+    if (localStorage.getItem(HB_STORAGE_KEY)) return
+    const { value } = await Preferences.get({ key: HB_STORAGE_KEY })
+    if (value) localStorage.setItem(HB_STORAGE_KEY, value)
   } catch {
     // A failed restore just means first-run defaults; never block startup on it.
   }
@@ -32,7 +32,7 @@ export async function restoreStateFromNative(): Promise<void> {
 export function mirrorStateToNative(): () => void {
   if (!isNative()) return () => undefined
   return subscribePersist((json) => {
-    void Preferences.set({ key: WTB_STORAGE_KEY, value: json }).catch(() => undefined)
+    void Preferences.set({ key: HB_STORAGE_KEY, value: json }).catch(() => undefined)
   })
 }
 

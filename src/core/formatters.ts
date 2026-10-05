@@ -11,7 +11,7 @@ import {
 import type { HolidayLookup } from '@core/holidays'
 import type { Location } from '@core/timezones'
 import { DateTime } from 'luxon'
-import type { CalendarDate } from '@core/useTimeBuddyState'
+import type { CalendarDate } from '@core/useHourbridgeState'
 
 /** Format offset hours like -9.5 → "−9:30", 5.5 → "+5:30", 0 → "0". */
 export function formatOffsetHours(hours: number): string {

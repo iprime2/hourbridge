@@ -9,10 +9,10 @@ import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
-import { useTimeBuddyState } from '@core/useTimeBuddyState'
+import { useHourbridgeState } from '@core/useHourbridgeState'
 
 export default function App() {
-  const state = useTimeBuddyState()
+  const state = useHourbridgeState()
   const now = useNow('minute')
   useTheme(state.theme)
 
@@ -57,7 +57,7 @@ export default function App() {
 
   // Native menu (macOS/Windows) drives the same actions.
   useEffect(() => {
-    return window.wtb?.onMenuCommand?.((command) => {
+    return window.hb?.onMenuCommand?.((command) => {
       if (command === 'add-location') setAddOpen(true)
       else if (command === 'today') goToToday()
       else if (command === 'prev-day') shiftDate(-1)
@@ -71,7 +71,7 @@ export default function App() {
     // Best effort: the menu-bar clock is a convenience, so a refused payload must not surface
     // as an unhandled rejection in the UI.
     void Promise.resolve(
-      window.wtb?.publishState?.({
+      window.hb?.publishState?.({
         locations: state.locations,
         timeFormat: state.timeFormat,
         theme: state.theme
@@ -105,7 +105,7 @@ export default function App() {
         onWorkHours={state.setWorkHours}
         onSortByOffset={state.sortByOffset}
         onAddLocation={state.addLocation}
-        onOpenWidget={window.wtb?.openWidget ? () => void window.wtb?.openWidget() : undefined}
+        onOpenWidget={window.hb?.openWidget ? () => void window.hb?.openWidget() : undefined}
       />
 
       <main className="app-main">

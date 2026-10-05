@@ -1,4 +1,4 @@
-# World Time Buddy
+# Hourbridge
 
 A timezone planner: one TypeScript codebase shipped as a **web app / PWA** (the main way to distribute), **Electron** desktop apps (macOS, Windows) and an **iOS** app (Capacitor). Architecture, per-platform rules and the definition of done are in [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md) — read it before changing structure, time logic or UI. The README covers setup, packaging, CI and hosting.
 
@@ -22,7 +22,7 @@ Before pushing: `npm test && npm run lint && npm run build && npm run build:mobi
 
 - `src/core` platform-free logic (Luxon time math, planner, DST, public holidays, persistence, share/ICS). **All time math lives here**; it never imports from `renderer`, `mobile` or `web`.
 - `src/ui` shared components + design tokens. `src/renderer` Electron UI. `src/mobile` touch UI + Capacitor adapter. `src/web` PWA shell (layout switch, install prompt, service worker, manifest). `src/main`, `src/preload` Electron only.
-- Platform features sit behind adapters (`window.wtb?.`, `src/mobile/native.ts`) and must degrade to no-ops in a browser and in tests.
+- Platform features sit behind adapters (`window.hb?.`, `src/mobile/native.ts`) and must degrade to no-ops in a browser and in tests.
 
 ## Product rules that are easy to break
 
@@ -43,11 +43,11 @@ Before pushing: `npm test && npm run lint && npm run build && npm run build:mobi
 
 ## Project direction
 
-The owner does not want to pay for Apple Developer, Microsoft Store or code-signing programs. Distribution is the free web app (Vercel Hobby, personal non-commercial use); native builds stay unsigned. Issue #7 (macOS Gatekeeper blocks unsigned builds) needs a paid Apple account for a real fix — don't propose paid-account work as the default. The final app name is undecided: worldtimebuddy.com is an existing product, so don't register domains or publish under a public name without asking.
+The owner does not want to pay for Apple Developer, Microsoft Store or code-signing programs. Distribution is the free web app (Vercel Hobby, personal non-commercial use); native builds stay unsigned. Issue #7 (macOS Gatekeeper blocks unsigned builds) needs a paid Apple account for a real fix — don't propose paid-account work as the default. The app is named Hourbridge (the owner's choice). The name's availability as a domain, in the App Store / Microsoft Store and as a trademark has not been checked, and nothing is registered or published under it: don't register domains or publish under a public name (stores, a custom domain) without asking.
 
 ## Test gotchas
 
 - jsdom has no `DragEvent` (build one with `createEvent` and set `clientY` via `Object.defineProperty`) and no `Blob.stream`.
 - In Vitest, type the parameters of `vi.fn(async (a: X) => …)` or it infers zero arguments.
 - In user-event, `[[` types a literal `[`.
-- `vitest.setup.ts` clears `localStorage['wtb:state']` between tests (guarded for node-environment tests).
+- `vitest.setup.ts` clears `localStorage['hb:state']` between tests (guarded for node-environment tests).

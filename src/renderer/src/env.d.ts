@@ -2,29 +2,29 @@
 /// <reference types="@testing-library/jest-dom" />
 
 /** Menu actions the native app menu can trigger in the renderer. */
-type WtbMenuCommand = 'add-location' | 'today' | 'prev-day' | 'next-day' | 'toggle-format'
+type HbMenuCommand = 'add-location' | 'today' | 'prev-day' | 'next-day' | 'toggle-format'
 
 /** The slice of app state the main process needs (menu-bar clock). */
-interface WtbPublishedState {
+interface HbPublishedState {
   locations: { id: string; label: string; iana: string; isHome?: boolean }[]
   timeFormat: '12h' | '24h'
   theme: 'system' | 'light' | 'dark'
 }
 
-interface WtbApi {
+interface HbApi {
   openWidget: () => Promise<void>
   closeWidget: () => Promise<void>
   focusMain: () => Promise<void>
   setAlwaysOnTop: (value: boolean) => Promise<boolean>
   getAlwaysOnTop: () => Promise<boolean>
-  publishState?: (state: WtbPublishedState) => Promise<void>
+  publishState?: (state: HbPublishedState) => Promise<void>
   /** Subscribe to native-menu commands; returns an unsubscribe function. */
-  onMenuCommand?: (handler: (command: WtbMenuCommand) => void) => () => void
+  onMenuCommand?: (handler: (command: HbMenuCommand) => void) => () => void
 }
 
 interface Window {
-  worldTimeBuddy?: {
+  hourbridge?: {
     platform: NodeJS.Platform
   }
-  wtb?: WtbApi
+  hb?: HbApi
 }

@@ -8,10 +8,16 @@ import {
 import { sameDays, sanitizeWorkDays } from '@core/workDays'
 import { DEFAULT_LOCATIONS, HOME_TIMEZONE, type Location } from '@core/timezones'
 
-export const WTB_STORAGE_KEY = 'wtb:state'
+export const HB_STORAGE_KEY = 'hb:state'
 
 /**
- * Bump when the persisted shape changes; add a step in `parsePersistedBuddyState`.
+ * Where the state was kept before the app was renamed. It is read when the current key is empty
+ * and removed by the next save, so nobody loses their cities and settings to the rename.
+ */
+const LEGACY_STORAGE_KEY = 'wtb:state'
+
+/**
+ * Bump when the persisted shape changes; add a step in `parsePersistedState`.
  * v4: working hours may carry `days` (ISO weekdays you work). Older payloads have none, which
  * means Monday–Friday, so v3 and earlier need no data change.
  * v5: working hours may carry `holidaysOff: false` (you work through public holidays at home).
@@ -21,7 +27,7 @@ export const PERSIST_VERSION = 5
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
-export interface PersistedBuddyState {
+export interface PersistedState {
   /** Absent on v1 payloads written before settings existed. */
   version?: number
   locations: Location[]
@@ -31,7 +37,7 @@ export interface PersistedBuddyState {
 }
 
 /** State with every optional setting filled in. */
-export type ResolvedBuddyState = Required<PersistedBuddyState>
+export type ResolvedState = Required<PersistedState>
 
 function isTimeFormat(value: unknown): value is TimeFormat {
   return value === '12h' || value === '24h'
@@ -132,8 +138,8 @@ export function sanitizeLocations(input: readonly Location[]): Location[] | null
   })
 }
 
-/** Parse persisted buddy state; returns null when missing or invalid. */
-export function parsePersistedBuddyState(raw: string | null): PersistedBuddyState | null {
+/** Parse persisted state; returns null when missing or invalid. */
+export function parsePersistedState(raw: string | null): PersistedState | null {
   if (!raw) return null
   try {
     const data = JSON.parse(raw) as unknown
@@ -167,22 +173,22 @@ function safeStorage(): Storage | null {
   }
 }
 
-export function loadPersistedBuddyState(
+export function loadPersistedState(
   storage: Pick<Storage, 'getItem'> | null = safeStorage()
-): PersistedBuddyState | null {
+): PersistedState | null {
   if (!storage) return null
   try {
-    return parsePersistedBuddyState(storage.getItem(WTB_STORAGE_KEY))
+    return parsePersistedState(storage.getItem(HB_STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY))
   } catch {
     return null
   }
 }
 
 /** The stored state with defaults applied, or the built-in defaults on first run. */
-export function loadResolvedBuddyState(
+export function loadResolvedState(
   storage?: Pick<Storage, 'getItem'> | null
-): ResolvedBuddyState {
-  const stored = loadPersistedBuddyState(storage)
+): ResolvedState {
+  const stored = loadPersistedState(storage)
   return {
     version: PERSIST_VERSION,
     locations: stored?.locations ?? DEFAULT_LOCATIONS.map((l) => ({ ...l })),
@@ -204,9 +210,9 @@ export function subscribePersist(listener: PersistListener): () => void {
   return () => persistListeners.delete(listener)
 }
 
-export function savePersistedBuddyState(
-  state: PersistedBuddyState,
-  storage: Pick<Storage, 'setItem'> | null = safeStorage()
+export function savePersistedState(
+  state: PersistedState,
+  storage: (Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'removeItem'>>) | null = safeStorage()
 ): void {
   const json = JSON.stringify({
     ...state,
@@ -214,7 +220,8 @@ export function savePersistedBuddyState(
     version: PERSIST_VERSION
   })
   try {
-    storage?.setItem(WTB_STORAGE_KEY, json)
+    storage?.setItem(HB_STORAGE_KEY, json)
+    storage?.removeItem?.(LEGACY_STORAGE_KEY)
   } catch {
     // Quota exceeded / storage blocked: keep running with in-memory state.
     return

@@ -12,7 +12,7 @@ import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
-import { useTimeBuddyState, type CalendarDate } from '@core/useTimeBuddyState'
+import { useHourbridgeState, type CalendarDate } from '@core/useHourbridgeState'
 
 type SheetState = { kind: 'add' } | { kind: 'settings' } | { kind: 'city'; id: string } | null
 
@@ -21,7 +21,7 @@ function dayLabel(date: CalendarDate, zone: string): string {
 }
 
 export default function MobileApp() {
-  const state = useTimeBuddyState()
+  const state = useHourbridgeState()
   const now = useNow('minute')
   useTheme(state.theme)
 
@@ -85,7 +85,7 @@ export default function MobileApp() {
       <header className="m-header">
         <div className="m-brand">
           <Logo size={28} />
-          <h1 className="m-title">World Time Buddy</h1>
+          <h1 className="m-title">Hourbridge</h1>
         </div>
         <div className="m-header-actions">
           <button

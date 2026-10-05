@@ -10,7 +10,7 @@ import PlannerBar from '@ui/PlannerBar'
 import SettingsPanel from '@ui/SettingsPanel'
 import { buildTimelineForLocations } from '@core/formatters'
 import { setHolidayLoader, type CalendarDay, type HolidayLookup } from '@core/holidays'
-import { WTB_STORAGE_KEY } from '@core/persistence'
+import { HB_STORAGE_KEY } from '@core/persistence'
 import { summarizePlanner } from '@core/planner'
 import type { WorkHours } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
@@ -261,7 +261,7 @@ describe('the whole app on a public holiday at home', () => {
   const workTiles = () => istTiles().querySelectorAll('.hour-tile.is-work').length
 
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(REPUBLIC_DAY_MORNING)
     setHolidayLoader(async (code) => (code === 'IN' ? { '2026': [['01-26', 'Republic Day']] } : null))
@@ -291,7 +291,7 @@ describe('the whole app on a public holiday at home', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Public holidays in India are days off' }))
     expect(workTiles()).toBe(9)
     expect(istTiles().querySelectorAll('.hour-tile.has-holiday')).toHaveLength(24) // still marked
-    expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).workHours).toEqual({ start: 9, end: 17, holidaysOff: false })
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).workHours).toEqual({ start: 9, end: 17, holidaysOff: false })
   })
 
   it('shows nothing, and does not break, when the holiday data cannot be loaded', async () => {

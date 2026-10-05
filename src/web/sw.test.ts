@@ -164,8 +164,8 @@ describe('installing a built site (with a real precache list)', () => {
     const built = load(['./', 'index.html', 'assets/app-1.js', 'icon-192.png'])
     const caches = new FakeCaches()
     await built.onInstall(caches, SCOPE)
-    expect(await caches.keys()).toEqual(['wtb-testbuild'])
-    const cache = await caches.open('wtb-testbuild')
+    expect(await caches.keys()).toEqual(['hb-testbuild'])
+    const cache = await caches.open('hb-testbuild')
     expect([...cache.store.keys()].sort()).toEqual(
       [SCOPE, url('index.html'), url('assets/app-1.js'), url('icon-192.png')].sort()
     )
@@ -175,17 +175,28 @@ describe('installing a built site (with a real precache list)', () => {
     const built = load(['./', 'assets/missing.js'])
     const caches = new FakeCaches(async (u) => (u.endsWith('missing.js') ? new Response('', { status: 404 }) : new Response('ok')))
     await expect(built.onInstall(caches, SCOPE)).rejects.toThrow(/404/)
-    const cache = await caches.open('wtb-testbuild')
+    const cache = await caches.open('hb-testbuild')
     expect(cache.store.size).toBe(0) // all-or-nothing
   })
 
   it('a new build activates cleanly: its cache stays and the previous build’s is removed', async () => {
     const caches = new FakeCaches()
-    await caches.open('wtb-previous')
+    await caches.open('hb-previous')
     const built = load(['./'])
     await built.onInstall(caches, SCOPE)
     await built.onActivate(caches)
-    expect(await caches.keys()).toEqual(['wtb-testbuild'])
+    expect(await caches.keys()).toEqual(['hb-testbuild'])
+  })
+
+  it('also removes caches left by the app’s old name, and leaves caches that are not ours alone', async () => {
+    const caches = new FakeCaches()
+    await caches.open('wtb-oldbuild') // what versions before the rename called their cache
+    await caches.open('hb-previous')
+    await caches.open('some-other-app')
+    const built = load(['./'])
+    await built.onInstall(caches, SCOPE)
+    await built.onActivate(caches)
+    expect((await caches.keys()).sort()).toEqual(['hb-testbuild', 'some-other-app'])
   })
 })
 

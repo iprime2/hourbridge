@@ -1,5 +1,5 @@
 /*
- * World Time Buddy — shared design tokens and primitives.
+ * Hourbridge — shared design tokens and primitives.
  * Imported by both the desktop (Electron) and iOS (Capacitor) UIs.
  *
  * Theming: light is the default; dark applies when the OS prefers it *unless* the user

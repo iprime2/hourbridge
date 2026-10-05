@@ -5,7 +5,7 @@ interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
 }
 
-export const DISMISS_KEY = 'wtb:install-dismissed'
+export const DISMISS_KEY = 'hb:install-dismissed'
 const DISMISS_DAYS = 30
 
 /** Already running as an installed app (home-screen icon, desktop app window)? */
@@ -88,7 +88,7 @@ export default function InstallPrompt() {
       {installEvent ? (
         <>
           <p className="install-text">
-            <strong>Install World Time Buddy</strong> for a home-screen icon and offline use.
+            <strong>Install Hourbridge</strong> for a home-screen icon and offline use.
           </p>
           <div className="install-actions">
             <button type="button" className="btn btn-primary" onClick={() => void install()}>

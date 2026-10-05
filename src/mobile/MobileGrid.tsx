@@ -20,7 +20,7 @@ import {
   type WorkHours
 } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
-import type { CalendarDate } from '@core/useTimeBuddyState'
+import type { CalendarDate } from '@core/useHourbridgeState'
 
 interface MobileGridProps {
   locations: readonly Location[]

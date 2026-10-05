@@ -17,7 +17,7 @@ vi.mock('@mobile/native', () => ({
 import MobileApp from '@mobile/MobileApp'
 import * as native from '@mobile/native'
 import { setHolidayLoader } from '@core/holidays'
-import { WTB_STORAGE_KEY } from '@core/persistence'
+import { HB_STORAGE_KEY } from '@core/persistence'
 
 const row = (name: RegExp) => screen.getByLabelText(name)
 const tile = (label: RegExp, hour: number) =>
@@ -27,7 +27,7 @@ const rowLabels = () =>
 
 describe('MobileApp (iOS)', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
     document.documentElement.removeAttribute('data-theme')
     vi.mocked(native.hapticSelection).mockClear()
     vi.mocked(native.shareMeeting).mockClear()
@@ -37,7 +37,7 @@ describe('MobileApp (iOS)', () => {
 
   it('renders the default cities with IST as home', () => {
     render(<MobileApp />)
-    expect(screen.getByRole('heading', { name: /world time buddy/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /hourbridge/i })).toBeInTheDocument()
     expect(rowLabels()).toEqual([
       'Miami timezone row',
       'IST timezone row',
@@ -181,7 +181,7 @@ describe('MobileApp (iOS)', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(row(/Paris timezone row/i)).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).locations.some(
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).locations.some(
       (l: { id: string }) => l.id === 'paris'
     )).toBe(true)
   })
@@ -202,7 +202,7 @@ describe('MobileApp (iOS)', () => {
     await user.click(screen.getByRole('radio', { name: 'Dark' }))
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
     expect(native.syncStatusBar).toHaveBeenLastCalledWith('dark')
-    expect(JSON.parse(localStorage.getItem(WTB_STORAGE_KEY)!).theme).toBe('dark')
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).theme).toBe('dark')
   })
 
   it('switches to 24-hour time from settings', async () => {
@@ -247,7 +247,7 @@ describe('MobileApp (iOS)', () => {
 
 describe('MobileApp (iOS) on a public holiday at home', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-01-26T04:30:00Z')) // Monday 10:00 in Kolkata, Republic Day
     setHolidayLoader(async (code) => (code === 'IN' ? { '2026': [['01-26', 'Republic Day']] } : null))

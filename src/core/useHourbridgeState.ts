@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DateTime } from 'luxon'
 import type { CityOption } from '@core/cityOptions'
 import {
-  loadResolvedBuddyState,
-  savePersistedBuddyState,
+  loadResolvedState,
+  savePersistedState,
   type ThemePreference
 } from '@core/persistence'
 import { normalizeRange, type HourRange } from '@core/planner'
@@ -25,9 +25,9 @@ function todayInZone(zone: string): CalendarDate {
   return { year: now.year, month: now.month, day: now.day }
 }
 
-export function useTimeBuddyState() {
+export function useHourbridgeState() {
   // Read storage exactly once; everything else derives from React state.
-  const [initial] = useState(() => loadResolvedBuddyState())
+  const [initial] = useState(() => loadResolvedState())
 
   const [locations, setLocations] = useState<Location[]>(initial.locations)
   const [selectedDate, setSelectedDate] = useState<CalendarDate>(() =>
@@ -42,7 +42,7 @@ export function useTimeBuddyState() {
   const anchor = useRef<number | null>(null)
 
   useEffect(() => {
-    savePersistedBuddyState({ locations, timeFormat, theme, workHours })
+    savePersistedState({ locations, timeFormat, theme, workHours })
   }, [locations, timeFormat, theme, workHours])
 
   const home = useMemo(() => getHomeLocation(locations), [locations])
@@ -226,4 +226,4 @@ export function useTimeBuddyState() {
   }
 }
 
-export type TimeBuddyState = ReturnType<typeof useTimeBuddyState>
+export type HourbridgeState = ReturnType<typeof useHourbridgeState>

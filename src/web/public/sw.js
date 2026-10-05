@@ -1,5 +1,5 @@
 /*
- * World Time Buddy — service worker. Makes the static site work offline and load instantly.
+ * Hourbridge — service worker. Makes the static site work offline and load instantly.
  *
  * Everything the app needs is a static file, so the strategy is simple:
  *   - The build lists every emitted file (PRECACHE) and stamps a hash of them (BUILD_ID). On
@@ -19,7 +19,9 @@
 
 const BUILD_ID = '__BUILD_ID__'
 const PRECACHE = ['__PRECACHE__']
-const CACHE_PREFIX = 'wtb-'
+const CACHE_PREFIX = 'hb-'
+// Caches made before the app was renamed. Without this, `activate` would never delete them.
+const LEGACY_CACHE_PREFIX = 'wtb-'
 const CACHE_NAME = CACHE_PREFIX + BUILD_ID
 
 /** Absolute URLs of everything to cache on install, resolved against the worker's scope. */
@@ -48,7 +50,9 @@ async function onInstall(caches, scope) {
 async function onActivate(caches) {
   const names = await caches.keys()
   await Promise.all(
-    names.filter((n) => n.startsWith(CACHE_PREFIX) && n !== CACHE_NAME).map((n) => caches.delete(n))
+    names
+      .filter((n) => (n.startsWith(CACHE_PREFIX) || n.startsWith(LEGACY_CACHE_PREFIX)) && n !== CACHE_NAME)
+      .map((n) => caches.delete(n))
   )
 }
 

@@ -1,8 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import {
-  loadResolvedBuddyState,
-  WTB_STORAGE_KEY,
-  type ResolvedBuddyState
+  loadResolvedState,
+  HB_STORAGE_KEY,
+  type ResolvedState
 } from '@core/persistence'
 import { useTheme } from '@core/theme'
 import { useHolidayLookup } from '@core/useHolidays'
@@ -12,17 +12,17 @@ import { buildWidgetRows } from '@core/widgetRows'
 import { HolidayIcon } from '@ui/icons'
 
 export default function WidgetApp() {
-  const [buddy, setBuddy] = useState<ResolvedBuddyState>(() => loadResolvedBuddyState())
+  const [saved, setSaved] = useState<ResolvedState>(() => loadResolvedState())
   const now = useNow('minute')
   const [alwaysOnTop, setAlwaysOnTop] = useState(true)
-  useTheme(buddy.theme)
-  const holidays = useHolidayLookup(buddy.locations)
+  useTheme(saved.theme)
+  const holidays = useHolidayLookup(saved.locations)
 
   // The main window writes to localStorage; other windows receive a `storage` event.
   useEffect(() => {
     const onStorage = (event: StorageEvent): void => {
-      if (event.key !== WTB_STORAGE_KEY) return
-      setBuddy(loadResolvedBuddyState())
+      if (event.key !== HB_STORAGE_KEY) return
+      setSaved(loadResolvedState())
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
@@ -30,7 +30,7 @@ export default function WidgetApp() {
 
   useEffect(() => {
     let cancelled = false
-    void window.wtb?.getAlwaysOnTop?.().then((value) => {
+    void window.hb?.getAlwaysOnTop?.().then((value) => {
       if (!cancelled && typeof value === 'boolean') setAlwaysOnTop(value)
     })
     return () => {
@@ -38,14 +38,14 @@ export default function WidgetApp() {
     }
   }, [])
 
-  const rows = buildWidgetRows(buddy.locations, buddy.timeFormat, now, buddy.workHours, holidays)
+  const rows = buildWidgetRows(saved.locations, saved.timeFormat, now, saved.workHours, holidays)
   const dragStyle = { WebkitAppRegion: 'drag' } as CSSProperties
   const noDragStyle = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
   return (
     <div className="widget-shell">
       <header className="widget-chrome" style={dragStyle}>
-        <h1 className="widget-title">World Time Buddy</h1>
+        <h1 className="widget-title">Hourbridge</h1>
         <div className="widget-chrome-actions" style={noDragStyle}>
           <button
             type="button"
@@ -55,7 +55,7 @@ export default function WidgetApp() {
             onClick={() => {
               const next = !alwaysOnTop
               setAlwaysOnTop(next)
-              void window.wtb?.setAlwaysOnTop?.(next)
+              void window.hb?.setAlwaysOnTop?.(next)
             }}
           >
             {alwaysOnTop ? 'Pinned' : 'Unpinned'}
@@ -64,7 +64,7 @@ export default function WidgetApp() {
             type="button"
             className="btn btn-tiny"
             aria-label="Open main window"
-            onClick={() => void window.wtb?.focusMain?.()}
+            onClick={() => void window.hb?.focusMain?.()}
           >
             Main
           </button>
@@ -72,7 +72,7 @@ export default function WidgetApp() {
             type="button"
             className="btn btn-tiny"
             aria-label="Close widget"
-            onClick={() => void window.wtb?.closeWidget?.()}
+            onClick={() => void window.hb?.closeWidget?.()}
           >
             ×
           </button>

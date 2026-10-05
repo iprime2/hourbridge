@@ -1,6 +1,6 @@
 ---
 name: time-correctness
-description: Rules, an awkward-zone checklist and test recipes for World Time Buddy's time logic in src/core (timeEngine, dst, planner, useNow). Use when adding or changing anything that converts, formats, compares or ticks time — timezones, DST, half-hour zones, working hours, day/night, the live clock — or when writing tests for it.
+description: Rules, an awkward-zone checklist and test recipes for Hourbridge's time logic in src/core (timeEngine, dst, planner, useNow). Use when adding or changing anything that converts, formats, compares or ticks time — timezones, DST, half-hour zones, working hours, day/night, the live clock — or when writing tests for it.
 ---
 
 # Time correctness

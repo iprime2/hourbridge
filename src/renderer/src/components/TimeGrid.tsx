@@ -12,7 +12,7 @@ import {
   type TimelineColumn,
   type WorkHours
 } from '@core/timeEngine'
-import type { CalendarDate } from '@core/useTimeBuddyState'
+import type { CalendarDate } from '@core/useHourbridgeState'
 
 interface TimeGridProps {
   locations: readonly Location[]

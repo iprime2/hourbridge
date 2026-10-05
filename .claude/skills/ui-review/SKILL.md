@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: Review World Time Buddy UI code (React components and CSS in src/ui, src/renderer, src/mobile, src/web) for accessibility, focus, touch, animation, dark mode, safe-area and content-handling problems, using a pinned copy of Vercel's Web Interface Guidelines plus this app's own rules. Use when asked to review or audit UI, when finishing a UI change, or before merging one.
+description: Review Hourbridge UI code (React components and CSS in src/ui, src/renderer, src/mobile, src/web) for accessibility, focus, touch, animation, dark mode, safe-area and content-handling problems, using a pinned copy of Vercel's Web Interface Guidelines plus this app's own rules. Use when asked to review or audit UI, when finishing a UI change, or before merging one.
 ---
 
 # UI review
