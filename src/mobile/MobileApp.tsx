@@ -159,7 +159,7 @@ export default function MobileApp() {
 
       <div className="m-planner">
         <PlannerBar
-          selection={state.selection}
+          meeting={state.meeting}
           columns={columns}
           locations={state.locations}
           homeZone={homeZone}
@@ -171,6 +171,7 @@ export default function MobileApp() {
           onTitle={setTitle}
           onSelectRange={state.selectRange}
           onResize={state.resizeSelection}
+          onStartMinute={state.setMeetingStart}
           onClear={() => state.selectHour(null)}
           onShare={(text, ics, filename) => void onShare(text, ics, filename)}
         />

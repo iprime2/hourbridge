@@ -1,12 +1,13 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DateTime } from 'luxon'
 import CityPicker from '@ui/CityPicker'
 import PlannerBar from '@ui/PlannerBar'
 import SettingsPanel from '@ui/SettingsPanel'
 import { detectLocalZone, localCityOption } from '@core/cityOptions'
+import { meetingFromRange } from '@core/meeting'
 import { summarizePlanner } from '@core/planner'
 import { buildDayTimeline } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
@@ -275,11 +276,12 @@ describe('PlannerBar', () => {
       onTitle: vi.fn(),
       onSelectRange: vi.fn(),
       onResize: vi.fn(),
+      onStartMinute: vi.fn(),
       onClear: vi.fn()
     }
     render(
       <PlannerBar
-        selection={null}
+        meeting={null}
         columns={columns}
         locations={locations}
         homeZone={IST.iana}
@@ -341,7 +343,7 @@ describe('PlannerBar', () => {
   })
 
   it('describes the selected meeting in every location', () => {
-    setup({ selection: { start: 12, end: 17 } })
+    setup({ meeting: meetingFromRange({ start: 12, end: 17 }) })
     // The home time shows in the header and again in IST's own chip.
     expect(screen.getAllByText(/Mon, Jan 15 · 12:00 PM – 6:00 PM/)).toHaveLength(2)
     expect(screen.getByText('6h')).toBeInTheDocument()
@@ -360,7 +362,7 @@ describe('PlannerBar', () => {
 
   it('marks each person: awake in your hours, awake outside them, or asleep', () => {
     // 10:00 IST is inside your hours; London is 04:30 (asleep).
-    setup({ selection: { start: 10, end: 10 } })
+    setup({ meeting: meetingFromRange({ start: 10, end: 10 }) })
     expect(chip('IST')).toHaveClass('is-work')
     expect(chip('London')).toHaveClass('is-night')
     expect(within(chip('London')).getByText('asleep')).toBeInTheDocument()
@@ -370,7 +372,7 @@ describe('PlannerBar', () => {
 
   it('outside your hours nobody is "work" — they are simply awake', () => {
     // 21:00 IST: after your 17 end tile; London 15:30 is awake.
-    setup({ selection: { start: 21, end: 21 } })
+    setup({ meeting: meetingFromRange({ start: 21, end: 21 }) })
     expect(chip('IST')).toHaveClass('is-awake')
     expect(chip('London')).toHaveClass('is-awake')
     expect(within(chip('IST')).getByText('awake, outside your working hours')).toBeInTheDocument()
@@ -379,14 +381,14 @@ describe('PlannerBar', () => {
 
   it('is "outside your hours" if any part of the selection leaves them', () => {
     // 16:00–19:00 IST spills two tiles past your 5 PM end tile.
-    setup({ selection: { start: 16, end: 19 } })
+    setup({ meeting: meetingFromRange({ start: 16, end: 19 }) })
     expect(screen.getByText(/Outside your working hours/)).toBeInTheDocument()
     expect(chip('IST')).toHaveClass('is-awake')
   })
 
   it('treats a person as asleep if they are asleep at any point of the meeting', () => {
     // 2–4 AM IST: IST is asleep throughout; London is awake at 2–3 but asleep at 4 (22:30).
-    setup({ selection: { start: 2, end: 4 } })
+    setup({ meeting: meetingFromRange({ start: 2, end: 4 }) })
     expect(chip('IST')).toHaveClass('is-night')
     expect(chip('London')).toHaveClass('is-night')
     expect(screen.getByText(/IST and London are asleep\./)).toBeInTheDocument()
@@ -405,7 +407,7 @@ describe('PlannerBar', () => {
       locations: many,
       columns: cols,
       summary: summarizePlanner(cols, many, work),
-      selection: { start: 10, end: 10 }
+      meeting: meetingFromRange({ start: 10, end: 10 })
     })
     // London (04:30) is asleep for A–D: three named, the rest counted.
     expect(screen.getByText(/A, B, C \+1 more are asleep\./)).toBeInTheDocument()
@@ -413,7 +415,7 @@ describe('PlannerBar', () => {
 
   it('lets the user resize, clear, and title the meeting', async () => {
     const user = userEvent.setup()
-    const h = setup({ selection: { start: 15, end: 16 } })
+    const h = setup({ meeting: meetingFromRange({ start: 15, end: 16 }) })
     await user.click(screen.getByRole('button', { name: /lengthen/i }))
     expect(h.onResize).toHaveBeenCalledWith(1)
     await user.click(screen.getByRole('button', { name: /shorten/i }))
@@ -424,15 +426,133 @@ describe('PlannerBar', () => {
     expect(h.onTitle).toHaveBeenCalledWith('S')
   })
 
-  it('disables shortening at one hour and lengthening at the end of the day', () => {
-    setup({ selection: { start: 23, end: 23 } })
-    expect(screen.getByRole('button', { name: /shorten/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /lengthen/i })).toBeDisabled()
+  describe('meetings shorter than an hour', () => {
+    // Mon 2024-01-15, home IST (UTC+5:30); London is five and a half hours behind.
+    const meeting = (hour: number, minute: number, minutes: number) => ({ startMinute: hour * 60 + minute, minutes })
+
+    it('disables shortening at 15 minutes, and lengthening only when the meeting already ends at midnight', () => {
+      setup({ meeting: meeting(9, 0, 15) })
+      expect(screen.getByRole('button', { name: 'Shorten the meeting' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Lengthen the meeting' })).toBeEnabled()
+      cleanup()
+      setup({ meeting: meeting(23, 0, 60) })
+      expect(screen.getByRole('button', { name: 'Shorten the meeting' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Lengthen the meeting' })).toBeDisabled()
+    })
+
+    it('can shorten an hour and lengthen a quarter hour, one step per click', async () => {
+      const user = userEvent.setup()
+      const h = setup({ meeting: meeting(9, 0, 60) })
+      await user.click(screen.getByRole('button', { name: 'Shorten the meeting' }))
+      expect(h.onResize).toHaveBeenLastCalledWith(-1)
+      await user.click(screen.getByRole('button', { name: 'Lengthen the meeting' }))
+      expect(h.onResize).toHaveBeenLastCalledWith(1)
+    })
+
+    it.each([
+      [15, '15m', '15 minutes'],
+      [45, '45m', '45 minutes'],
+      [60, '1h', '1 hour'],
+      [90, '1h 30m', '1 hour 30 minutes'],
+      [120, '2h', '2 hours']
+    ])('shows %i minutes as "%s", and says it in words to a screen reader', (minutes, short, words) => {
+      setup({ meeting: meeting(9, 0, minutes) })
+      const length = screen.getByRole('group', { name: 'Meeting length' })
+      expect(within(length).getByText(short)).toHaveAttribute('aria-hidden', 'true')
+      expect(within(length).getByText(words)).toHaveClass('sr-only')
+    })
+
+    it('offers the four quarter hours of the start hour, in home time, and reports a choice', async () => {
+      const user = userEvent.setup()
+      const h = setup({ meeting: meeting(9, 0, 30) })
+      const start = screen.getByRole('combobox', { name: 'Start time' })
+      expect(within(start).getAllByRole('option').map((o) => o.textContent)).toEqual([
+        '9:00 AM',
+        '9:15 AM',
+        '9:30 AM',
+        '9:45 AM'
+      ])
+      expect(start).toHaveValue('0')
+      await user.selectOptions(start, '30')
+      expect(h.onStartMinute).toHaveBeenCalledWith(30)
+    })
+
+    it('shows the chosen minute, and writes the options in 24-hour time when asked', () => {
+      setup({ meeting: meeting(14, 45, 15), timeFormat: '24h' })
+      const start = screen.getByRole('combobox', { name: 'Start time' })
+      expect(start).toHaveValue('45')
+      expect(within(start).getAllByRole('option').map((o) => o.textContent)).toEqual(['14:00', '14:15', '14:30', '14:45'])
+    })
+
+    it('shows the exact start and end for the home city', () => {
+      setup({ meeting: meeting(9, 30, 30) })
+      const when = () => document.querySelector('.planner-when')?.textContent
+      expect(when()).toBe('Mon, Jan 15 · 9:30 AM – 10:00 AM IST')
+      cleanup()
+      setup({ meeting: meeting(9, 15, 90) })
+      expect(when()).toBe('Mon, Jan 15 · 9:15 AM – 10:45 AM IST')
+    })
+
+    it('writes the invite and the person list with the real minutes', async () => {
+      const user = userEvent.setup()
+      setup({ meeting: meeting(9, 30, 30), title: 'Stand-up' })
+      expect(screen.getByText('Mon, Jan 15 · 4:00 AM – 4:30 AM')).toBeInTheDocument() // London, five and a half hours behind
+      await user.click(screen.getByRole('button', { name: 'Copy details' }))
+      const text = await navigator.clipboard.readText()
+      expect(text).toContain('IST (home): Mon, Jan 15 · 9:30 AM – 10:00 AM')
+      expect(text).toContain('London: Mon, Jan 15 · 4:00 AM – 4:30 AM')
+    })
+
+    it('puts the real start and end in the calendar file', async () => {
+      const user = userEvent.setup()
+      let blob: Blob | null = null
+      URL.createObjectURL = vi.fn((b: Blob | MediaSource) => {
+        blob = b as Blob
+        return 'blob:test'
+      })
+      URL.revokeObjectURL = vi.fn()
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+      setup({ meeting: meeting(9, 30, 30), title: 'Stand-up' })
+      await user.click(screen.getByRole('button', { name: 'Add to calendar' }))
+      const ics = await readBlob(blob as unknown as Blob)
+      expect(ics).toContain('DTSTART:20240115T040000Z') // 9:30 IST
+      expect(ics).toContain('DTEND:20240115T043000Z') // 10:00 IST: thirty minutes, not an hour
+    })
+
+    it('checks sleep across the whole meeting, not only at the start of the hour tile', () => {
+      // London wakes at 6:00, which is 11:30 IST: the 11 o'clock tile starts in London's night.
+      setup({ meeting: meeting(11, 0, 30) }) // London 5:30–6:00: asleep
+      expect(screen.getByText(/London is asleep/)).toBeInTheDocument()
+      cleanup()
+      setup({ meeting: meeting(11, 30, 30) }) // London 6:00–6:30: awake, though the tile starts at 5:30 there
+      expect(screen.getByText(/everyone is awake/)).toBeInTheDocument()
+      cleanup()
+
+      // Tokyo is asleep from 22:00, which is 18:30 IST: the 6 PM tile starts while Tokyo is still awake.
+      const tokyo: Location = { id: 'tokyo', label: 'Tokyo', iana: 'Asia/Tokyo' }
+      const both = [IST, tokyo]
+      const cols = buildDayTimeline({ year: 2024, month: 1, day: 15 }, both.map((l) => l.iana), IST.iana)
+      const withTokyo = { locations: both, columns: cols, summary: summarizePlanner(cols, both, work) }
+      setup({ ...withTokyo, meeting: meeting(18, 0, 30) }) // Tokyo 21:30–22:00: awake throughout
+      expect(screen.getByText(/everyone is awake/)).toBeInTheDocument()
+      cleanup()
+      setup({ ...withTokyo, meeting: meeting(18, 0, 60) }) // Tokyo 21:30–22:30: asleep for the second half
+      expect(screen.getByText(/Tokyo is asleep/)).toBeInTheDocument()
+    })
+
+    it('judges working hours by the hour tiles it touches', () => {
+      // Working 9:00 through the 5 PM tile. 17:30–18:00 is inside the 5 PM tile; 17:30–18:30 leaves it.
+      setup({ meeting: meeting(17, 30, 30) })
+      expect(screen.getByText(/Inside your working hours/)).toBeInTheDocument()
+      cleanup()
+      setup({ meeting: meeting(17, 30, 60) })
+      expect(screen.getByText(/Outside your working hours/)).toBeInTheDocument()
+    })
   })
 
   it('copies an invite with the meeting title', async () => {
     const user = userEvent.setup()
-    setup({ selection: { start: 15, end: 17 }, title: 'Sprint sync' })
+    setup({ meeting: meetingFromRange({ start: 15, end: 17 }), title: 'Sprint sync' })
     await user.click(screen.getByRole('button', { name: 'Copy details' }))
     // user-event provides an in-memory clipboard for navigator.clipboard.
     const text = await navigator.clipboard.readText()
@@ -457,7 +577,7 @@ describe('PlannerBar', () => {
       filename = this.download
     })
 
-    setup({ selection: { start: 15, end: 17 }, title: 'Sprint Sync!' })
+    setup({ meeting: meetingFromRange({ start: 15, end: 17 }), title: 'Sprint Sync!' })
     await user.click(screen.getByRole('button', { name: 'Add to calendar' }))
 
     expect(filename).toBe('sprint-sync.ics')
@@ -474,7 +594,7 @@ describe('PlannerBar', () => {
   it('uses the platform share sheet when one is provided', async () => {
     const user = userEvent.setup()
     const onShare = vi.fn()
-    setup({ selection: { start: 15, end: 15 }, onShare })
+    setup({ meeting: meetingFromRange({ start: 15, end: 15 }), onShare })
     expect(screen.queryByRole('button', { name: 'Copy details' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Share' }))
     expect(onShare).toHaveBeenCalledWith(
@@ -488,7 +608,7 @@ describe('PlannerBar', () => {
     const user = userEvent.setup()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     // The legacy fallback also fails in jsdom (no execCommand), so the UI must say so.
-    setup({ selection: { start: 15, end: 15 } })
+    setup({ meeting: meetingFromRange({ start: 15, end: 15 }) })
     await user.click(screen.getByRole('button', { name: 'Copy details' }))
     expect(await screen.findByText('Could not copy')).toBeInTheDocument()
   })

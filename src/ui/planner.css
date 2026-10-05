@@ -41,9 +41,14 @@
 }
 
 .planner-hours {
-  min-width: 2rem;
+  min-width: 3.4rem; /* wide enough for "1h 30m" */
   text-align: center;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.planner-start {
+  font-weight: 650;
 }
 
 .planner-actions {

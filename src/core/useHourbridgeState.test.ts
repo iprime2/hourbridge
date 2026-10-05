@@ -136,15 +136,97 @@ describe('useHourbridgeState — ranges, settings, ordering', () => {
     expect(result.current.selection).toEqual({ start: 9, end: 14 })
   })
 
-  it('resizes the meeting length within 1h..end-of-day', () => {
+  it('resizes the meeting along 15, 30, 45, 60, 90, 120 … minutes, within the day', () => {
     const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.selectHour(20))
-    act(() => result.current.resizeSelection(2))
-    expect(result.current.selection).toEqual({ start: 20, end: 22 })
-    act(() => result.current.resizeSelection(10))
+    expect(result.current.meeting).toEqual({ startMinute: 1200, minutes: 60 })
+    act(() => result.current.resizeSelection(2)) // 60 → 90 → 120
+    expect(result.current.meeting?.minutes).toBe(120)
+    expect(result.current.selection).toEqual({ start: 20, end: 21 })
+    act(() => result.current.resizeSelection(10)) // as long as fits: 20:00 to midnight
+    expect(result.current.meeting).toEqual({ startMinute: 1200, minutes: 240 })
     expect(result.current.selection).toEqual({ start: 20, end: 23 })
-    act(() => result.current.resizeSelection(-10))
+    act(() => result.current.resizeSelection(-10)) // as short as 15 minutes
+    expect(result.current.meeting).toEqual({ startMinute: 1200, minutes: 15 })
     expect(result.current.selection).toEqual({ start: 20, end: 20 })
+  })
+
+  it('shortens one hour to 45, 30 and 15 minutes, one step at a time, and back', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(9))
+    const lengths: number[] = []
+    for (const step of [-1, -1, -1, -1, 1, 1]) {
+      act(() => result.current.resizeSelection(step))
+      lengths.push(result.current.meeting!.minutes)
+    }
+    expect(lengths).toEqual([45, 30, 15, 15, 30, 45])
+  })
+
+  it('starts a meeting on a quarter hour, keeping its length, and highlights the hour it is in', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(9))
+    act(() => result.current.resizeSelection(-2)) // 30 minutes
+    act(() => result.current.setMeetingStart(30))
+    expect(result.current.meeting).toEqual({ startMinute: 9 * 60 + 30, minutes: 30 })
+    expect(result.current.selection).toEqual({ start: 9, end: 9 })
+    act(() => result.current.resizeSelection(2)) // 30 → 45 → 60: 9:30 to 10:30 touches two hours
+    expect(result.current.selection).toEqual({ start: 9, end: 10 })
+  })
+
+  it('ignores a start change when nothing is selected', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.setMeetingStart(30))
+    expect(result.current.meeting).toBeNull()
+  })
+
+  it('remembers the length you chose for the next click on a tile, but not a dragged range', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(9))
+    act(() => result.current.resizeSelection(-2)) // 30 minutes
+    act(() => result.current.selectHour(14))
+    expect(result.current.meeting).toEqual({ startMinute: 14 * 60, minutes: 30 }) // starts on the hour again
+    act(() => result.current.selectRange(10, 12))
+    expect(result.current.meeting).toEqual({ startMinute: 10 * 60, minutes: 180 })
+    act(() => result.current.selectHour(16))
+    expect(result.current.meeting?.minutes).toBe(30) // the drag did not change the habit
+  })
+
+  it('treats a range of one tile (a mouse click) like a click, and a wider range as whole hours', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(9))
+    act(() => result.current.resizeSelection(-2)) // 30 minutes
+    act(() => result.current.selectRange(15, 15))
+    expect(result.current.meeting).toEqual({ startMinute: 15 * 60, minutes: 30 })
+    act(() => result.current.selectRange(15, 16))
+    expect(result.current.meeting).toEqual({ startMinute: 15 * 60, minutes: 120 })
+    act(() => result.current.selectRange(16, 15)) // dragged backwards: still two whole hours
+    expect(result.current.meeting).toEqual({ startMinute: 15 * 60, minutes: 120 })
+  })
+
+  it('keeps a click inside the day when the remembered length would run past midnight', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(9))
+    act(() => result.current.resizeSelection(4)) // 60 → 90 → 120 → 180 → 240
+    act(() => result.current.selectHour(23))
+    expect(result.current.meeting).toEqual({ startMinute: 23 * 60, minutes: 60 })
+  })
+
+  it('moves a short meeting by whole hours, keeping its minute and length, and wraps around midnight', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(9))
+    act(() => result.current.resizeSelection(-2))
+    act(() => result.current.setMeetingStart(30))
+    act(() => result.current.nudgeHour(3))
+    expect(result.current.meeting).toEqual({ startMinute: 12 * 60 + 30, minutes: 30 })
+    act(() => result.current.nudgeHour(12)) // 12:30 + 12h = 24:30 → 00:30
+    expect(result.current.meeting).toEqual({ startMinute: 30, minutes: 30 })
+  })
+
+  it('exposes the selection as nothing while there is no meeting', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    expect(result.current.meeting).toBeNull()
+    expect(result.current.selection).toBeNull()
+    expect(result.current.selectedHour).toBeNull()
   })
 
   it('ignores resize when nothing is selected', () => {
