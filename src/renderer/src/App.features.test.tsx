@@ -76,8 +76,8 @@ describe('App — planning, shortcuts and settings', () => {
     const planner = screen.getByRole('region', { name: /meeting planner/i })
 
     screen.getByRole('grid').focus()
-    await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}')
-    expect(within(planner).getByText('3h')).toBeInTheDocument()
+    await user.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}') // 1h → 1h 30m → 2h
+    expect(within(planner).getByText('2h')).toBeInTheDocument()
     await user.keyboard('{ArrowRight}')
     expect(tile(/IST timezone row/i, 10)).toHaveClass('is-selected')
     expect(tile(/IST timezone row/i, 9)).not.toHaveClass('is-selected')

@@ -6,7 +6,17 @@ import {
   savePersistedState,
   type ThemePreference
 } from '@core/persistence'
-import { normalizeRange, type HourRange } from '@core/planner'
+import {
+  DEFAULT_MEETING_MINUTES,
+  meetingColumns,
+  meetingFromRange,
+  MINUTES_PER_DAY,
+  moveMeeting,
+  resizeMeeting,
+  withStartMinute,
+  type Meeting
+} from '@core/meeting'
+import { normalizeRange } from '@core/planner'
 import { moveItem } from '@core/reorder'
 import { useHolidayLookup } from '@core/useHolidays'
 import { getHomeLocation, type Location } from '@core/timezones'
@@ -36,10 +46,12 @@ export function useHourbridgeState() {
   const [timeFormat, setTimeFormat] = useState<TimeFormat>(initial.timeFormat)
   const [theme, setTheme] = useState<ThemePreference>(initial.theme)
   const [workHours, setWorkHours] = useState<WorkHours>(initial.workHours)
-  const [selection, setSelection] = useState<HourRange | null>(null)
+  const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [hoveredHour, setHoveredHour] = useState<number | null>(null)
   /** The end of a drag/shift-select that stays fixed while the other end moves. */
   const anchor = useRef<number | null>(null)
+  /** How long a click on one hour tile makes the meeting: what the length buttons last set. */
+  const clickMinutes = useRef(DEFAULT_MEETING_MINUTES)
 
   useEffect(() => {
     savePersistedState({ locations, timeFormat, theme, workHours })
@@ -49,6 +61,8 @@ export function useHourbridgeState() {
   /** Public holidays for the cities on screen; a new function whenever a country's data arrives. */
   const holidays = useHolidayLookup(locations)
 
+  /** The hour columns the meeting touches: what the grid highlights. */
+  const selection = useMemo(() => (meeting ? meetingColumns(meeting) : null), [meeting])
   const selectedHour = selection ? selection.start : null
   const activeHour = hoveredHour ?? selectedHour
 
@@ -132,63 +146,84 @@ export function useHourbridgeState() {
     setSelectedDate(todayInZone(home.iana))
   }, [home.iana])
 
-  /* —— hour selection (a range of home-hour columns) —— */
+  /* —— the meeting: a start and a length in minutes, shown against the hour columns —— */
 
-  const selectHour = useCallback((hour: number | null) => {
-    anchor.current = hour
-    setSelection(hour === null ? null : { start: hour, end: hour })
-  }, [])
+  /** A meeting of the usual click length that starts on the hour of `hour`, kept inside the day. */
+  const meetingAt = useCallback(
+    (hour: number): Meeting => ({
+      startMinute: hour * 60,
+      minutes: Math.min(clickMinutes.current, MINUTES_PER_DAY - hour * 60)
+    }),
+    []
+  )
 
-  /** Select from `from` to `to` (either order); `from` becomes the anchor. */
-  const selectRange = useCallback((from: number, to: number) => {
-    anchor.current = from
-    setSelection(normalizeRange(from, to))
-  }, [])
+  const selectHour = useCallback(
+    (hour: number | null) => {
+      anchor.current = hour
+      setMeeting(hour === null ? null : meetingAt(hour))
+    },
+    [meetingAt]
+  )
+
+  /**
+   * Select from `from` to `to` (either order); `from` becomes the anchor. Across several tiles that
+   * is those whole hours; on a single tile (a plain click, or a drag that comes back to it) it is
+   * a meeting of the usual length, like `selectHour`.
+   */
+  const selectRange = useCallback(
+    (from: number, to: number) => {
+      anchor.current = from
+      setMeeting(from === to ? meetingAt(from) : meetingFromRange(normalizeRange(from, to)))
+    },
+    [meetingAt]
+  )
 
   /** Shift-click: grow the selection from its anchor to `hour`. */
   const extendSelection = useCallback((hour: number) => {
-    setSelection((prev) => {
-      const from = anchor.current ?? prev?.start ?? hour
+    setMeeting((prev) => {
+      const from = anchor.current ?? (prev ? meetingColumns(prev).start : hour)
       anchor.current = from
-      return normalizeRange(from, hour)
+      return meetingFromRange(normalizeRange(from, hour))
     })
   }, [])
 
-  /** Change meeting length in whole hours; never below one hour or past 23:00. */
-  const resizeSelection = useCallback((delta: number) => {
-    setSelection((prev) => {
+  /**
+   * Lengthen or shorten by `steps` rungs of 15, 30, 45, 60, 90, 120, 180 … minutes, never below
+   * 15 minutes or past midnight. The length chosen here is what the next click on a tile gives.
+   */
+  const resizeSelection = useCallback((steps: number) => {
+    setMeeting((prev) => {
       if (!prev) return prev
-      const end = Math.min(23, Math.max(prev.start, prev.end + delta))
-      return { start: prev.start, end }
+      const next = resizeMeeting(prev, steps)
+      clickMinutes.current = next.minutes // the same value if React runs this twice
+      return next
     })
+  }, [])
+
+  /** Start at :00, :15, :30 or :45 of the hour the meeting starts in. */
+  const setMeetingStart = useCallback((minuteOfHour: number) => {
+    setMeeting((prev) => (prev ? withStartMinute(prev, minuteOfHour) : prev))
   }, [])
 
   const hoverHour = useCallback((hour: number | null) => {
     setHoveredHour(hour)
   }, [])
 
-  /** Move the selection by whole hours. A single hour wraps around midnight; a range clamps. */
+  /** Move the meeting by whole hours. One that fits in an hour wraps around midnight; longer ones clamp. */
   const nudgeHour = useCallback(
     (delta: number) => {
-      setSelection((prev) => {
+      setMeeting((prev) => {
         if (!prev) {
-          const base = hoveredHour ?? 12
-          const hour = (base + delta + 24) % 24
+          const hour = ((hoveredHour ?? 12) + delta + 24) % 24
           anchor.current = hour
-          return { start: hour, end: hour }
+          return meetingAt(hour)
         }
-        if (prev.start === prev.end) {
-          const hour = (prev.start + delta + 24) % 24
-          anchor.current = hour
-          return { start: hour, end: hour }
-        }
-        const span = prev.end - prev.start
-        const start = Math.min(23 - span, Math.max(0, prev.start + delta))
-        anchor.current = start
-        return { start, end: start + span }
+        const next = moveMeeting(prev, delta)
+        anchor.current = meetingColumns(next).start
+        return next
       })
     },
-    [hoveredHour]
+    [hoveredHour, meetingAt]
   )
 
   return {
@@ -200,6 +235,7 @@ export function useHourbridgeState() {
     theme,
     workHours,
     holidays,
+    meeting,
     selection,
     selectedHour,
     hoveredHour,
@@ -221,6 +257,7 @@ export function useHourbridgeState() {
     selectRange,
     extendSelection,
     resizeSelection,
+    setMeetingStart,
     hoverHour,
     nudgeHour
   }

@@ -3,9 +3,17 @@ import '@ui/planner.css'
 import { copyText, downloadTextFile, fileSlug } from '@ui/browser'
 import { HolidayIcon } from '@ui/icons'
 import {
+  describeDuration,
+  formatDuration,
+  meetingColumns,
+  meetingPlan,
+  resizeMeeting,
+  type Meeting
+} from '@core/meeting'
+import {
   availableAt,
   holidaysDuring,
-  isAsleepAt,
+  isAsleepDuring,
   type CityHolidays,
   type HourRange,
   type PlannerSummary
@@ -24,7 +32,8 @@ import { describeHolidays } from '@core/formatters'
 import type { Location } from '@core/timezones'
 
 interface PlannerBarProps {
-  selection: HourRange | null
+  /** The meeting being planned (when it starts and how long it lasts), or null. */
+  meeting: Meeting | null
   columns: TimelineColumn[]
   locations: readonly Location[]
   homeZone: string
@@ -34,7 +43,10 @@ interface PlannerBarProps {
   title: string
   onTitle: (title: string) => void
   onSelectRange: (from: number, to: number) => void
-  onResize: (delta: number) => void
+  /** Lengthen (+1) or shorten (−1) by one step: 15 minutes up to an hour, 30 up to two, then hourly. */
+  onResize: (steps: number) => void
+  /** Start at :00, :15, :30 or :45 of the hour the meeting starts in. */
+  onStartMinute: (minuteOfHour: number) => void
   onClear: () => void
   /** Platform share sheet (iOS). Desktop omits it and gets Copy + calendar download. */
   onShare?: (text: string, ics: string, filename: string) => void
@@ -78,7 +90,7 @@ function windowLabel(range: HourRange, format: TimeFormat, homeLabel: string): s
 }
 
 export default function PlannerBar({
-  selection,
+  meeting,
   columns,
   locations,
   homeZone,
@@ -89,6 +101,7 @@ export default function PlannerBar({
   onTitle,
   onSelectRange,
   onResize,
+  onStartMinute,
   onClear,
   onShare,
   hint = DESKTOP_HINT
@@ -99,13 +112,9 @@ export default function PlannerBar({
 
   const homeLabel = locations.find((l) => l.isHome)?.label ?? homeZone
 
-  const plan: MeetingPlan | null = useMemo(() => {
-    if (!selection) return null
-    const first = columns[selection.start]
-    const last = columns[selection.end]
-    if (!first || !last) return null
-    return { start: first.instant, end: last.instant.plus({ hours: 1 }) }
-  }, [selection, columns])
+  const plan: MeetingPlan | null = useMemo(() => (meeting ? meetingPlan(meeting, columns) : null), [meeting, columns])
+  /** The hour columns the meeting touches. */
+  const selection: HourRange | null = useMemo(() => (meeting ? meetingColumns(meeting) : null), [meeting])
 
   // Is the whole selection inside YOUR working hours? (Same answer for every city.)
   const insideMyHours = useMemo(() => {
@@ -118,16 +127,13 @@ export default function PlannerBar({
 
   // For each city: asleep at any point of the meeting? Otherwise how it sits against your hours.
   const perLocation = useMemo(() => {
-    if (!selection) return []
+    if (!plan) return []
     return locations.map((location) => {
-      let asleep = false
-      for (let h = selection.start; h <= selection.end && !asleep; h++) {
-        asleep = isAsleepAt(columns[h], location)
-      }
+      const asleep = isAsleepDuring(plan, location.iana)
       const phase: HourPhase = asleep ? 'night' : insideMyHours ? 'work' : 'awake'
       return { location, phase }
     })
-  }, [selection, columns, locations, insideMyHours])
+  }, [plan, locations, insideMyHours])
 
   // Public holidays during the meeting, and (with nothing selected) anywhere on this date.
   const holidays = useMemo(() => holidaysDuring(columns, locations, selection), [columns, locations, selection])
@@ -151,14 +157,15 @@ export default function PlannerBar({
   }
 
   const asleepNames = perLocation.filter((p) => p.phase === 'night').map((p) => p.location.label)
-  const hours = selection ? selection.end - selection.start + 1 : 0
+  const canShorten = meeting ? resizeMeeting(meeting, -1) !== meeting : false
+  const canLengthen = meeting ? resizeMeeting(meeting, 1) !== meeting : false
 
   const { best, sharedWindows } = summary
   const bestRange: HourRange | null = best ? { start: best.homeHour, end: best.homeHour } : null
 
   return (
     <section className="planner" role="region" aria-label="Meeting planner">
-      {selection && plan ? (
+      {meeting && selection && plan ? (
         <>
           <div className="planner-head">
             <input
@@ -173,24 +180,37 @@ export default function PlannerBar({
               {formatSlot(plan, homeZone, timeFormat)}{' '}
               <span className="planner-zone">{homeLabel}</span>
             </div>
+            <select
+              className="settings-select planner-start"
+              aria-label="Start time"
+              value={meeting.startMinute % 60}
+              onChange={(e) => onStartMinute(Number(e.target.value))}
+            >
+              {[0, 15, 30, 45].map((minute) => (
+                <option key={minute} value={minute}>
+                  {formatTime(selection.start, minute, timeFormat)}
+                </option>
+              ))}
+            </select>
             <div className="planner-length" role="group" aria-label="Meeting length">
               <button
                 type="button"
                 className="btn btn-icon"
-                aria-label="Shorten by one hour"
-                disabled={hours <= 1}
+                aria-label="Shorten the meeting"
+                disabled={!canShorten}
                 onClick={() => onResize(-1)}
               >
                 −
               </button>
-              <span className="planner-hours tabular" aria-live="off">
-                {hours}h
+              <span className="planner-hours tabular">
+                <span aria-hidden="true">{formatDuration(meeting.minutes)}</span>
+                <span className="sr-only">{describeDuration(meeting.minutes)}</span>
               </span>
               <button
                 type="button"
                 className="btn btn-icon"
-                aria-label="Lengthen by one hour"
-                disabled={selection.end >= 23}
+                aria-label="Lengthen the meeting"
+                disabled={!canLengthen}
                 onClick={() => onResize(1)}
               >
                 +

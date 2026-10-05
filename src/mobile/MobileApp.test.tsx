@@ -64,10 +64,21 @@ describe('MobileApp (iOS)', () => {
     const user = userEvent.setup()
     render(<MobileApp />)
     await user.click(tile(/IST timezone row/i, 10))
-    await user.click(screen.getByRole('button', { name: /lengthen/i }))
-    await user.click(screen.getByRole('button', { name: /lengthen/i }))
+    for (let step = 0; step < 3; step++) await user.click(screen.getByRole('button', { name: /lengthen/i })) // 1h → 1h 30m → 2h → 3h
     expect(screen.getByText('3h')).toBeInTheDocument()
     for (const h of [10, 11, 12]) expect(tile(/IST timezone row/i, h)).toHaveClass('is-selected')
+  })
+
+  it('plans a 30-minute meeting that starts on the half hour', async () => {
+    const user = userEvent.setup()
+    render(<MobileApp />)
+    await user.click(tile(/IST timezone row/i, 10))
+    await user.click(screen.getByRole('button', { name: 'Shorten the meeting' }))
+    await user.click(screen.getByRole('button', { name: 'Shorten the meeting' })) // 1h → 45m → 30m
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Start time' }), '30')
+    expect(document.querySelector('.planner-when')?.textContent).toMatch(/10:30 AM – 11:00 AM IST$/)
+    expect(tile(/IST timezone row/i, 10)).toHaveClass('is-selected')
+    expect(tile(/IST timezone row/i, 11)).not.toHaveClass('is-selected')
   })
 
   it('shares through the native share sheet with text, calendar file and a safe name', async () => {

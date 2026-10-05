@@ -8,6 +8,7 @@ import {
 } from '@core/timeEngine'
 import {
   isAsleepAt,
+  isAsleepDuring,
   normalizeRange,
   phaseAt,
   rangeContains,
@@ -258,5 +259,34 @@ describe('summarizePlanner with your own working days', () => {
     }
     expect(tile(SATURDAY, 10)).toBe('work')
     expect(tile(THURSDAY, 10)).toBe('awake')
+  })
+})
+
+describe('isAsleepDuring: any moment of the meeting', () => {
+  const at = (iso: string, zone: string) => DateTime.fromISO(iso, { zone })
+  const plan = (from: string, to: string) => ({ start: at(from, 'UTC'), end: at(to, 'UTC') })
+
+  it('is true when the meeting starts, ends or passes through the city’s night', () => {
+    // London in winter is UTC: night is 22:00 to 05:59.
+    expect(isAsleepDuring(plan('2024-01-15T05:30:00', '2024-01-15T06:00:00'), 'Europe/London')).toBe(true)
+    expect(isAsleepDuring(plan('2024-01-15T21:45:00', '2024-01-15T22:15:00'), 'Europe/London')).toBe(true)
+    expect(isAsleepDuring(plan('2024-01-15T20:00:00', '2024-01-16T00:30:00'), 'Europe/London')).toBe(true)
+    expect(isAsleepDuring(plan('2024-01-15T21:59:00', '2024-01-15T22:01:00'), 'Europe/London')).toBe(true)
+  })
+
+  it('is false when every moment of it is in the day, and the end is exclusive', () => {
+    expect(isAsleepDuring(plan('2024-01-15T06:00:00', '2024-01-15T06:30:00'), 'Europe/London')).toBe(false)
+    expect(isAsleepDuring(plan('2024-01-15T21:30:00', '2024-01-15T22:00:00'), 'Europe/London')).toBe(false)
+    expect(isAsleepDuring(plan('2024-01-15T12:00:00', '2024-01-15T13:00:00'), 'Europe/London')).toBe(false)
+  })
+
+  it('reaches the hour boundaries of a zone on a 45-minute offset', () => {
+    // Kathmandu is UTC+5:45, so its 22:00 is 16:15 UTC: a meeting 16:00–16:30 UTC crosses it.
+    expect(isAsleepDuring(plan('2024-01-15T16:00:00', '2024-01-15T16:30:00'), 'Asia/Kathmandu')).toBe(true)
+    expect(isAsleepDuring(plan('2024-01-15T15:30:00', '2024-01-15T16:15:00'), 'Asia/Kathmandu')).toBe(false)
+  })
+
+  it('is false for an empty meeting', () => {
+    expect(isAsleepDuring(plan('2024-01-15T03:00:00', '2024-01-15T03:00:00'), 'Europe/London')).toBe(false)
   })
 })

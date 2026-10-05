@@ -7,6 +7,8 @@ import {
   type TimelineColumn,
   type WorkHours
 } from './timeEngine'
+import type { DateTime } from 'luxon'
+import type { MeetingPlan } from './share'
 import { getHomeLocation, type Location } from './timezones'
 
 /** Inclusive range of home-hour columns (0–23). */
@@ -66,6 +68,21 @@ export function isHolidayAt(column: TimelineColumn, location: Pick<Location, 'ia
 export function isAsleepAt(column: TimelineColumn, location: Pick<Location, 'iana'>): boolean {
   const cell = column.cells[location.iana]
   return !cell || classifyDayNight(cell.hour) === 'night'
+}
+
+/**
+ * Is the city asleep at any moment of the meeting? Local time is checked at the start, every 15
+ * minutes after it, and at the last instant. Night and day each last an hour or more, so a stretch
+ * of night inside the meeting is caught by one of those checks, however the meeting is aligned: one
+ * that starts at 21:45 there and runs past 22:00 counts as night, as it should.
+ */
+export function isAsleepDuring(plan: MeetingPlan, zone: string): boolean {
+  if (plan.end <= plan.start) return false
+  const asleepAt = (t: DateTime): boolean => classifyDayNight(t.setZone(zone).hour) === 'night'
+  for (let t = plan.start; t < plan.end; t = t.plus({ minutes: 15 })) {
+    if (asleepAt(t)) return true
+  }
+  return asleepAt(plan.end.minus({ milliseconds: 1 }))
 }
 
 function runsWhere(hours: readonly boolean[]): HourRange[] {

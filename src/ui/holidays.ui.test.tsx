@@ -11,6 +11,7 @@ import SettingsPanel from '@ui/SettingsPanel'
 import { buildTimelineForLocations } from '@core/formatters'
 import { setHolidayLoader, type CalendarDay, type HolidayLookup } from '@core/holidays'
 import { HB_STORAGE_KEY } from '@core/persistence'
+import { meetingFromRange } from '@core/meeting'
 import { summarizePlanner } from '@core/planner'
 import type { WorkHours } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
@@ -37,7 +38,8 @@ describe('PlannerBar and public holidays', () => {
     const columns = buildTimelineForLocations(date, people, IST.iana, holidays)
     render(
       <PlannerBar
-        selection={null}
+        meeting={null}
+        onStartMinute={vi.fn()}
         columns={columns}
         locations={people}
         homeZone={IST.iana}
@@ -82,7 +84,7 @@ describe('PlannerBar and public holidays', () => {
   })
 
   it('lists the holiday beside the city in the meeting, and in the summary', () => {
-    setup({ selection: { start: 9, end: 10 } })
+    setup({ meeting: meetingFromRange({ start: 9, end: 10 }) })
     const people = screen.getByRole('list', { name: 'Meeting time for each location' })
     expect(within(people).getByText('Culture Day')).toBeInTheDocument()
     expect(within(people).getAllByText(/Public holiday: Culture Day/)[0]).toHaveClass('sr-only')
@@ -92,7 +94,7 @@ describe('PlannerBar and public holidays', () => {
 
   it('says it is your own day off when the holiday is at home, and why there are no working hours', () => {
     const columns = buildTimelineForLocations({ year: 2026, month: 1, day: 26 }, [IST, TOKYO], IST.iana, holidays)
-    const props = { columns, selection: { start: 9, end: 10 } }
+    const props = { columns, meeting: meetingFromRange({ start: 9, end: 10 }) }
     setup({ ...props, date: { year: 2026, month: 1, day: 26 } })
     expect(screen.getByText(/Outside your working hours/)).toBeInTheDocument()
     expect(screen.getByText(/IST is on a public holiday \(Republic Day\)\. At home that is a day off\./)).toBeInTheDocument()
@@ -101,7 +103,7 @@ describe('PlannerBar and public holidays', () => {
   it('does not call it a day off for someone who works through holidays', () => {
     setup({
       date: { year: 2026, month: 1, day: 26 },
-      selection: { start: 9, end: 10 },
+      meeting: meetingFromRange({ start: 9, end: 10 }),
       workHours: { ...work, holidaysOff: false }
     })
     expect(screen.getByText(/Inside your working hours/)).toBeInTheDocument()
@@ -115,7 +117,8 @@ describe('PlannerBar and public holidays', () => {
     const columns = buildTimelineForLocations(CULTURE_DAY, people, IST.iana, both)
     render(
       <PlannerBar
-        selection={{ start: 9, end: 9 }}
+        meeting={meetingFromRange({ start: 9, end: 9 })}
+        onStartMinute={vi.fn()}
         columns={columns}
         locations={people}
         homeZone={IST.iana}

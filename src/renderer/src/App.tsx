@@ -134,7 +134,7 @@ export default function App() {
       </main>
 
       <PlannerBar
-        selection={state.selection}
+        meeting={state.meeting}
         columns={columns}
         locations={state.locations}
         homeZone={homeZone}
@@ -145,6 +145,7 @@ export default function App() {
         onTitle={setTitle}
         onSelectRange={state.selectRange}
         onResize={state.resizeSelection}
+        onStartMinute={state.setMeetingStart}
         onClear={() => state.selectHour(null)}
       />
 

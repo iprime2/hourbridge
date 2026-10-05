@@ -31,6 +31,8 @@ Time math is the product. It lives only in `src/core` and is pure: `timeEngine.t
 
 ## Home zones that change their clocks
 
+A meeting is `{ startMinute, minutes }` (`src/core/meeting.ts`): minutes after the day's first home-hour column, multiples of 15, at least 15, ending by midnight. The grid still shows whole-hour tiles; `meetingColumns` says which tiles it touches (what is highlighted) and `meetingPlan` turns it into instants **from the columns' instants** (the start is the first column's instant plus its minutes, the end the last column's instant plus the minutes into it), so a whole-hour meeting is exactly what it always was and a daylight-saving change in the home zone cannot stretch it. Whether a city is asleep is checked over the meeting's real minutes (`isAsleepDuring`), not just at the start of a tile: a half-hour zone's tile spans two local hours. The length ladder is 15, 30, 45, 60, 90, 120, then hourly.
+
 The home zone is user-configurable, and `buildDayTimeline` always returns 24 columns indexed by home hour: the grids (`homeHour` as key and `columns[h]`), the selection, the NOW marker and the planner all rely on that, so never make it 23 or 25. On a transition day the affected column carries `transition`:
 
 - **`'skipped'`** — the hour does not exist (New York 02:00 on 2025-03-09, London 01:00 on 2025-03-30, Havana 00:00, every hour of Samoa's missing 2011-12-30). Its `instant` only repeats the next hour, so the column is an empty slot: the grids draw a dash and make it unselectable, and `summarizePlanner` never counts it (not best, and it breaks a run of good hours).
