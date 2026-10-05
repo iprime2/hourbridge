@@ -1,5 +1,5 @@
 /*
- * World Time Buddy — service worker. Makes the static site work offline and load instantly.
+ * Hourbridge — service worker. Makes the static site work offline and load instantly.
  *
  * Everything the app needs is a static file, so the strategy is simple:
  *   - The build lists every emitted file (PRECACHE) and stamps a hash of them (BUILD_ID). On
@@ -8,6 +8,8 @@
  *   - Pages (navigations): network first, so a new deploy shows up on the next visit; cached copy
  *     when offline.
  *   - /assets/*: cache first — the file names contain a content hash, so a cached one never changes.
+ *     The per-country holiday files (/assets/holidays/*) are the exception to "precached": there are
+ *     hundreds and a visitor uses a few, so each is fetched and kept the first time it is needed.
  *   - Everything else same-origin (icons, manifest): stale-while-revalidate.
  *
  * The two placeholders below are replaced by scripts/lib/sw-build.ts after `vite build`; until then
@@ -17,7 +19,7 @@
 
 const BUILD_ID = '__BUILD_ID__'
 const PRECACHE = ['__PRECACHE__']
-const CACHE_PREFIX = 'wtb-'
+const CACHE_PREFIX = 'hb-'
 const CACHE_NAME = CACHE_PREFIX + BUILD_ID
 
 /** Absolute URLs of everything to cache on install, resolved against the worker's scope. */

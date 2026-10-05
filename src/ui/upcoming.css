@@ -1,0 +1,153 @@
+/* Upcoming public holidays — shared by desktop and iOS. Imported by UpcomingHolidays.tsx. */
+
+.upcoming {
+  /* The first thing to give way on a short window: the grid and planner keep their size, and the
+     list scrolls inside the panel instead. */
+  flex: 0 1000 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 7rem;
+  padding: 10px 16px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.upcoming-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+}
+
+.upcoming-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.upcoming-from {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.upcoming-rows {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0 2px 0 0;
+  overflow-y: auto;
+  list-style: none;
+  /* A soft shadow on the edge that has more beyond it, so a list cut short by a small window is
+     seen to scroll (the covers scroll with the content and hide the shadows at the ends). */
+  background:
+    linear-gradient(var(--surface) 30%, transparent) center top,
+    linear-gradient(transparent, var(--surface) 70%) center bottom,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.22), transparent) center top,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.22), transparent) center bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 22px, 100% 22px, 100% 9px, 100% 9px;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* Taken from the text colour so it shows in dark mode too (a dark shadow on dark is invisible). A
+   browser without color-mix keeps the plain version above. */
+@supports (background: color-mix(in srgb, red 10%, transparent)) {
+  .upcoming-rows {
+    background:
+      linear-gradient(var(--surface) 30%, transparent) center top,
+      linear-gradient(transparent, var(--surface) 70%) center bottom,
+      radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--text) 22%, transparent), transparent) center top,
+      radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--text) 22%, transparent), transparent) center bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 22px, 100% 22px, 100% 9px, 100% 9px;
+    background-attachment: local, local, scroll, scroll;
+  }
+}
+
+.upcoming-row {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 9rem) 1fr;
+  gap: 4px 12px;
+  align-items: start;
+}
+
+.upcoming-where {
+  display: grid;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.upcoming-country {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.upcoming-cities {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.upcoming-what {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* One line of compact pills per country; they wrap on a narrow screen. */
+.upcoming-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming-day {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  min-width: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  font-size: 0.78rem;
+}
+
+.upcoming-date {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.upcoming-name {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.upcoming-away {
+  color: var(--text-muted);
+}
+
+.upcoming-away.is-today {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.upcoming-note {
+  margin: 0;
+  padding-top: 3px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.upcoming-days + .upcoming-note {
+  padding-top: 0;
+}

@@ -4,6 +4,7 @@ import CityPicker from '@ui/CityPicker'
 import Logo from '@ui/Logo'
 import PlannerBar from '@ui/PlannerBar'
 import SettingsPanel from '@ui/SettingsPanel'
+import UpcomingHolidays from '@ui/UpcomingHolidays'
 import MobileGrid from '@mobile/MobileGrid'
 import Sheet from '@mobile/Sheet'
 import { hapticSelection, shareMeeting, syncStatusBar } from '@mobile/native'
@@ -11,7 +12,7 @@ import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
-import { useTimeBuddyState, type CalendarDate } from '@core/useTimeBuddyState'
+import { useHourbridgeState, type CalendarDate } from '@core/useHourbridgeState'
 
 type SheetState = { kind: 'add' } | { kind: 'settings' } | { kind: 'city'; id: string } | null
 
@@ -20,7 +21,7 @@ function dayLabel(date: CalendarDate, zone: string): string {
 }
 
 export default function MobileApp() {
-  const state = useTimeBuddyState()
+  const state = useHourbridgeState()
   const now = useNow('minute')
   useTheme(state.theme)
 
@@ -42,8 +43,8 @@ export default function MobileApp() {
   }, [state.theme])
 
   const columns = useMemo(
-    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone),
-    [state.selectedDate, state.locations, homeZone]
+    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone, state.holidays),
+    [state.selectedDate, state.locations, homeZone, state.holidays]
   )
   const summary = useMemo(
     () => summarizePlanner(columns, state.locations, state.workHours),
@@ -84,7 +85,7 @@ export default function MobileApp() {
       <header className="m-header">
         <div className="m-brand">
           <Logo size={28} />
-          <h1 className="m-title">World Time Buddy</h1>
+          <h1 className="m-title">Hourbridge</h1>
         </div>
         <div className="m-header-actions">
           <button
@@ -173,6 +174,7 @@ export default function MobileApp() {
           onClear={() => state.selectHour(null)}
           onShare={(text, ics, filename) => void onShare(text, ics, filename)}
         />
+        <UpcomingHolidays locations={state.locations} from={state.selectedDate} now={now} />
       </div>
 
       {toast ? (
@@ -205,6 +207,7 @@ export default function MobileApp() {
             timeFormat={state.timeFormat}
             workHours={state.workHours}
             homeLabel={state.home.label}
+            locations={state.locations}
             onTheme={state.setTheme}
             onTimeFormat={state.setTimeFormat}
             onWorkHours={state.setWorkHours}

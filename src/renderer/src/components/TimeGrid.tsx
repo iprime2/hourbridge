@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent }
 import { DateTime } from 'luxon'
 import LocationRow, { type RowReorder } from '@renderer/components/LocationRow'
 import { buildTimelineForLocations, formatTileTime } from '@core/formatters'
+import type { HolidayLookup } from '@core/holidays'
 import { rangeContains, type HourRange } from '@core/planner'
 import { insertionForPointer, insertionToFinalIndex, isNoopInsertion } from '@core/reorder'
 import type { Location } from '@core/timezones'
@@ -11,7 +12,7 @@ import {
   type TimelineColumn,
   type WorkHours
 } from '@core/timeEngine'
-import type { CalendarDate } from '@core/useTimeBuddyState'
+import type { CalendarDate } from '@core/useHourbridgeState'
 
 interface TimeGridProps {
   locations: readonly Location[]
@@ -22,6 +23,8 @@ interface TimeGridProps {
   now: DateTime
   /** Pre-built timeline; the grid builds its own when omitted. */
   columns?: TimelineColumn[]
+  /** Public holidays for the grid's own timeline; not needed when `columns` is given. */
+  holidays?: HolidayLookup
   selection?: HourRange | null
   workHours?: WorkHours
   onSelectHour: (hour: number | null) => void
@@ -46,6 +49,7 @@ export default function TimeGrid({
   activeHour,
   now,
   columns: providedColumns,
+  holidays,
   selection = null,
   workHours = DEFAULT_WORK_HOURS,
   onSelectHour,
@@ -63,8 +67,8 @@ export default function TimeGrid({
   const gridRef = useRef<HTMLDivElement>(null)
 
   const built = useMemo(
-    () => (providedColumns ? null : buildTimelineForLocations(selectedDate, locations, homeZone)),
-    [providedColumns, selectedDate, locations, homeZone]
+    () => (providedColumns ? null : buildTimelineForLocations(selectedDate, locations, homeZone, holidays)),
+    [providedColumns, selectedDate, locations, homeZone, holidays]
   )
   const columns = providedColumns ?? built ?? []
 

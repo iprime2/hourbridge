@@ -29,7 +29,7 @@ export class MenuBarClock {
     if (process.platform !== 'darwin') return
     if (enabled && !this.tray) {
       this.tray = new Tray(nativeImage.createEmpty())
-      this.tray.setToolTip('World Time Buddy')
+      this.tray.setToolTip('Hourbridge')
       this.refresh()
       this.schedule()
     } else if (!enabled && this.tray) {
@@ -62,7 +62,7 @@ export class MenuBarClock {
       Menu.buildFromTemplate([
         ...lines.map((label) => ({ label, enabled: false })),
         ...(lines.length ? [{ type: 'separator' as const }] : []),
-        { label: 'Open World Time Buddy', click: this.handlers.showMain },
+        { label: 'Open Hourbridge', click: this.handlers.showMain },
         { label: 'Show Widget', click: this.handlers.showWidget },
         { type: 'separator' },
         { label: 'Quit', click: this.handlers.quit }

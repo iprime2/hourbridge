@@ -3,17 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@renderer/App'
-import { WTB_STORAGE_KEY } from '@core/persistence'
+import { HB_STORAGE_KEY } from '@core/persistence'
 
-describe('App World Time Buddy UI', () => {
+describe('App Hourbridge UI', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
   })
 
   it('renders default locations with IST as home', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: /world time buddy/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /hourbridge/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/IST timezone row/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Miami timezone row/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/AEST timezone row/i)).toBeInTheDocument()
@@ -25,7 +25,7 @@ describe('App World Time Buddy UI', () => {
   })
 
   it('exposes an Open widget control in the toolbar when running inside Electron', () => {
-    window.wtb = {
+    window.hb = {
       openWidget: vi.fn(async () => undefined),
       closeWidget: vi.fn(async () => undefined),
       focusMain: vi.fn(async () => undefined),
@@ -36,12 +36,12 @@ describe('App World Time Buddy UI', () => {
       render(<App />)
       expect(screen.getByRole('button', { name: /open widget/i })).toBeInTheDocument()
     } finally {
-      window.wtb = undefined
+      window.hb = undefined
     }
   })
 
   it('hides the Widget button in a plain browser, where there is no widget window', () => {
-    expect(window.wtb).toBeUndefined()
+    expect(window.hb).toBeUndefined()
     render(<App />)
     expect(screen.queryByRole('button', { name: /open widget/i })).toBeNull()
   })

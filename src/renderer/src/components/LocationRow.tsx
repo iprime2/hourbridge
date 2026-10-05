@@ -10,6 +10,7 @@ import {
   type WorkHours
 } from '@core/timeEngine'
 import {
+  describeHolidays,
   describeHourTransition,
   describeTilePhase,
   formatLiveClock,
@@ -21,6 +22,7 @@ import { getOffsetHoursRelativeToHome } from '@core/timeEngine'
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  HolidayIcon,
   HomeIcon,
   IconButton,
   MoonIcon,
@@ -297,6 +299,8 @@ export default function LocationRow({
           const { phase, asleep } = classifyTile(col, cell, workHours)
           const parts = tileTimeParts(cell.hour, cell.minute, timeFormat)
           const firstDay = columns[0]?.cells[location.iana]?.day
+          const holidayNote = cell.holidays ? describeHolidays(cell.holidays) : null
+          const tileNotes = [col.transition ? describeHourTransition(col.transition) : null, holidayNote].filter(Boolean)
           return (
             <button
               key={col.homeHour}
@@ -306,6 +310,7 @@ export default function LocationRow({
                 'hour-tile',
                 `is-${phase}`,
                 phase === 'work' && asleep ? 'is-asleep' : '',
+                holidayNote ? 'has-holiday' : '',
                 isHovered || inSelection ? 'is-active' : '',
                 inSelection ? 'is-selected' : ''
               ]
@@ -316,9 +321,9 @@ export default function LocationRow({
                 location.iana,
                 timeFormat
               )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)}${
-                col.transition ? `, ${describeHourTransition(col.transition)}` : ''
+                tileNotes.length ? `, ${tileNotes.join(', ')}` : ''
               })`}
-              title={col.transition ? describeHourTransition(col.transition) : undefined}
+              title={tileNotes.length ? tileNotes.join(' · ') : undefined}
               aria-pressed={inSelection}
               onMouseDown={(e) => {
                 if (e.button !== 0) return
@@ -337,6 +342,11 @@ export default function LocationRow({
               {phase === 'work' && asleep ? (
                 <span className="tile-moon">
                   <MoonIcon />
+                </span>
+              ) : null}
+              {holidayNote ? (
+                <span className="tile-holiday">
+                  <HolidayIcon />
                 </span>
               ) : null}
               <span className="hour-tile-time">

@@ -1,6 +1,6 @@
 {
-  "name": "World Time Buddy",
-  "short_name": "Time Buddy",
+  "name": "Hourbridge",
+  "short_name": "Hourbridge",
   "description": "Compare time zones at a glance, see who is awake, and pick a meeting time everyone can make.",
   "id": "./",
   "start_url": "./",

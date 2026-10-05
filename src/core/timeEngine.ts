@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon'
+import type { HolidayLookup } from './holidays'
 import { HOME_TIMEZONE, type IanaTimezone } from './timezones'
 
 export type TimeFormat = '12h' | '24h'
@@ -56,6 +57,11 @@ export interface WorkHours {
    * Sunday are worked is `[1, 2, 3, 6, 7]`.
    */
   days?: readonly number[]
+  /**
+   * Is a public holiday in your home country a day off? Absent means yes (the common case), so it
+   * is only ever stored as `false`: for someone who works through them.
+   */
+  holidaysOff?: boolean
 }
 
 export const DEFAULT_WORK_HOURS: WorkHours = { start: 9, end: 17 }
@@ -74,6 +80,8 @@ export interface TimelineCell {
   /** ISO weekday, 1 = Monday … 7 = Sunday. */
   weekday: number
   period: DayNight
+  /** Public holidays on this local date in this city's country. Absent on an ordinary day. */
+  holidays?: readonly string[]
 }
 
 /**
@@ -93,6 +101,8 @@ export interface TimelineColumn {
   instant: DateTime
   /** Set only on the days when daylight saving makes this home hour special. */
   transition?: HourTransition
+  /** Public holidays on this date in the home country (the same for every column of the day). */
+  homeHolidays?: readonly string[]
   cells: Record<IanaTimezone, TimelineCell>
 }
 
@@ -229,9 +239,21 @@ export function compareHomeHourAcrossZones(
 export function buildDayTimeline(
   date: Pick<HomeDateTimeParts, 'year' | 'month' | 'day'>,
   zones: readonly IanaTimezone[],
-  homeZone: IanaTimezone = HOME_TIMEZONE
+  homeZone: IanaTimezone = HOME_TIMEZONE,
+  holidays?: HolidayLookup
 ): TimelineColumn[] {
   const columns: TimelineColumn[] = []
+
+  // The same few (zone, date) pairs recur across the 24 columns: look each one up once.
+  const known = new Map<string, readonly string[]>()
+  const holidaysOn = (zone: IanaTimezone, year: number, month: number, day: number): readonly string[] => {
+    if (!holidays) return []
+    const key = `${zone}|${year}-${month}-${day}`
+    let names = known.get(key)
+    if (!names) known.set(key, (names = holidays(zone, { year, month, day })))
+    return names
+  }
+  const homeHolidays = holidaysOn(homeZone, date.year, date.month, date.day)
 
   for (let homeHour = 0; homeHour < 24; homeHour++) {
     const { instant, transition } = resolveWallTime({ ...date, hour: homeHour, minute: 0 }, homeZone)
@@ -239,6 +261,7 @@ export function buildDayTimeline(
 
     for (const zone of zones) {
       const local = getLocalWallTime(instant, zone)
+      const names = holidaysOn(zone, local.year, local.month, local.day)
       cells[zone] = {
         hour: local.hour,
         minute: local.minute,
@@ -246,11 +269,19 @@ export function buildDayTimeline(
         month: local.month,
         day: local.day,
         weekday: local.weekday,
-        period: classifyDayNight(local.hour)
+        period: classifyDayNight(local.hour),
+        // Left out on an ordinary day, so a timeline built without holidays is unchanged.
+        ...(names.length ? { holidays: names } : {})
       }
     }
 
-    columns.push(transition ? { homeHour, instant, transition, cells } : { homeHour, instant, cells })
+    columns.push({
+      homeHour,
+      instant,
+      ...(transition ? { transition } : {}),
+      ...(homeHolidays.length ? { homeHolidays } : {}),
+      cells
+    })
   }
 
   return columns
@@ -266,22 +297,35 @@ export function classifyDayNight(hour: number): DayNight {
   return 'day'
 }
 
-/** Is a real instant inside your working hours, on a day you work? Judged in the home zone. */
+/** Does a public holiday at home take the day off (it does, unless you said you work through them)? */
+function holidayIsDayOff(work: Pick<WorkHours, 'holidaysOff'>, homeHolidays: readonly string[] | undefined): boolean {
+  return work.holidaysOff !== false && (homeHolidays?.length ?? 0) > 0
+}
+
+/**
+ * Is a real instant inside your working hours, on a day you work? Judged in the home zone. Pass
+ * the holiday lookup to also treat a public holiday at home as a day off.
+ */
 export function isWorkInstant(
   instant: DateTime,
   homeZone: IanaTimezone,
-  work: WorkHours = DEFAULT_WORK_HOURS
+  work: WorkHours = DEFAULT_WORK_HOURS,
+  holidays?: HolidayLookup
 ): boolean {
   const home = instant.setZone(homeZone)
+  if (holidayIsDayOff(work, holidays?.(homeZone, { year: home.year, month: home.month, day: home.day }))) {
+    return false
+  }
   return isWorkDay(home.weekday, work) && home.hour >= work.start && home.hour <= work.end
 }
 
 /** Is this home-hour column inside your working hours? (`instant` is already in the home zone.) */
 export function isWorkColumn(
-  column: Pick<TimelineColumn, 'homeHour' | 'instant'>,
+  column: Pick<TimelineColumn, 'homeHour' | 'instant' | 'homeHolidays'>,
   work: WorkHours = DEFAULT_WORK_HOURS
 ): boolean {
   return (
+    !holidayIsDayOff(work, column.homeHolidays) &&
     isWorkDay(column.instant.weekday, work) &&
     column.homeHour >= work.start &&
     column.homeHour <= work.end
@@ -299,7 +343,7 @@ export interface TileState {
  * asleep. Both are reported so a green tile at 3 AM in Miami can still be flagged as night there.
  */
 export function classifyTile(
-  column: Pick<TimelineColumn, 'homeHour' | 'instant'>,
+  column: Pick<TimelineColumn, 'homeHour' | 'instant' | 'homeHolidays'>,
   cell: Pick<TimelineCell, 'hour'>,
   work: WorkHours = DEFAULT_WORK_HOURS
 ): TileState {

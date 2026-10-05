@@ -1,9 +1,9 @@
 ---
 name: lead-engineer
-description: Lead-engineer playbook for World Time Buddy — the web app (PWA) + Electron (Windows/macOS) + Capacitor (iOS) timezone app that shares one TypeScript core. Use when changing app architecture, UI/UX, time logic, the web/PWA shell, Electron main/preload code, macOS packaging, the iOS/Capacitor project, or CI for any of them.
+description: Lead-engineer playbook for Hourbridge — the web app (PWA) + Electron (Windows/macOS) + Capacitor (iOS) timezone app that shares one TypeScript core. Use when changing app architecture, UI/UX, time logic, the web/PWA shell, Electron main/preload code, macOS packaging, the iOS/Capacitor project, or CI for any of them.
 ---
 
-# World Time Buddy — lead engineer playbook
+# Hourbridge — lead engineer playbook
 
 Focused skills for specific jobs: `time-correctness` (any time, timezone, DST or clock code), `web-preflight` (check the built site before a merge or deploy), `ui-review` (audit UI code).
 
@@ -11,8 +11,8 @@ Focused skills for specific jobs: `time-correctness` (any time, timezone, DST or
 
 ```
 src/core/       platform-free TypeScript: time engine, formatters, cities, planner,
-                ICS/share text, persistence, useTimeBuddyState. NO electron / capacitor / DOM-only APIs.
-src/renderer/   Electron UI (main window, widget). May call window.wtb.* (optional-chained).
+                ICS/share text, persistence, useHourbridgeState. NO electron / capacitor / DOM-only APIs.
+src/renderer/   Electron UI (main window, widget). May call window.hb.* (optional-chained).
 src/mobile/     Capacitor iOS UI (touch-first). May call Capacitor plugins.
 src/web/        PWA shell: chooses the renderer (desktop grid) or mobile (touch) UI, install prompt,
                 service worker (public/sw.js), manifest. Built by vite.web.config.ts → dist-web/.
@@ -22,14 +22,14 @@ src/main, src/preload/   Electron main + preload only.
 Rules:
 - Time math lives in `src/core` and is **pure and unit-tested**. Never format times or compute offsets in components.
 - All UIs import from `@core/*`. `src/core` must never import from `renderer`, `mobile` or `web`.
-- Platform features go behind a small adapter (`window.wtb?.` on desktop, Capacitor plugin on mobile) and must degrade to a no-op in a plain browser and in tests. Controls that need a platform feature (the Widget button) render only when it exists.
+- Platform features go behind a small adapter (`window.hb?.` on desktop, Capacitor plugin on mobile) and must degrade to a no-op in a plain browser and in tests. Controls that need a platform feature (the Widget button) render only when it exists.
 - All stored state goes through `src/core/persistence` (versioned, validated, try/catch around storage). Bump `version` and add a migration for any shape change.
 
 ## Web / PWA rules
 
 - One page, two layouts: desktop grid when `(min-width: 900px) and (pointer: fine)`, touch layout otherwise; switching live must keep state. Both stylesheets load on the web, so page-level touch rules stay scoped to `html.is-mobile-ui` and new global selectors must be scoped to their layout.
 - Relative URLs and `base: './'` everywhere (the site must work under a sub-path). No third-party requests: the CSP in `vercel.json` and `src/web/index.html` is `'self'` only — keep the two in step (a test enforces it).
-- Service worker: the build (`scripts/lib/sw-build.ts`) stamps a hash of every emitted file into `sw.js`, so each deploy gets its own cache. Keep install all-or-nothing, no `skipWaiting`, old caches deleted on activate, registration production-only. Any change to `sw.js` needs the fake-Cache tests in `src/web/sw.test.ts`, and a check in real Chromium (offline reload, update flow).
+- Service worker: the build (`scripts/lib/sw-build.ts`) stamps a hash of every emitted file into `sw.js`, so each deploy gets its own cache. The ~200 per-country holiday files (`assets/holidays/`, set in `vite.web.config.ts`) are in the hash but not in the install list; the cache-first `/assets/` rule keeps each one when first used. Keep install all-or-nothing, no `skipWaiting`, old caches deleted on activate, registration production-only. Any change to `sw.js` needs the fake-Cache tests in `src/web/sw.test.ts`, and a check in real Chromium (offline reload, update flow).
 - Icons come from `scripts/lib/brand.mjs` via `npm run generate:icons`; the maskable icon keeps its mark inside the 40% safe zone.
 
 ## Time-correctness checklist (the product's whole value)

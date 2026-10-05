@@ -8,9 +8,10 @@ import {
   type TimeFormat,
   type TimelineColumn
 } from '@core/timeEngine'
+import type { HolidayLookup } from '@core/holidays'
 import type { Location } from '@core/timezones'
 import { DateTime } from 'luxon'
-import type { CalendarDate } from '@core/useTimeBuddyState'
+import type { CalendarDate } from '@core/useHourbridgeState'
 
 /** Format offset hours like -9.5 → "−9:30", 5.5 → "+5:30", 0 → "0". */
 export function formatOffsetHours(hours: number): string {
@@ -78,12 +79,13 @@ export function formatLiveClock(
 export function buildTimelineForLocations(
   date: CalendarDate,
   locations: readonly Location[],
-  homeZone: string
+  homeZone: string,
+  holidays?: HolidayLookup
 ): TimelineColumn[] {
   const zones = locations.map((l) => l.iana)
   // Deduplicate zones for engine Record keys while preserving order for display via locations
   const uniqueZones = [...new Set(zones)]
-  return buildDayTimeline(date, uniqueZones, homeZone)
+  return buildDayTimeline(date, uniqueZones, homeZone, holidays)
 }
 
 export function offsetForLocation(
@@ -100,6 +102,28 @@ export function offsetForLocation(
 export function describeTilePhase(phase: HourPhase, asleep: boolean): string {
   if (phase === 'work') return asleep ? 'your working hours, night there' : 'your working hours'
   return phase === 'awake' ? 'awake' : 'night'
+}
+
+/** "Mon, Jan 26": a calendar day for a holiday list (the weekday matters when planning around it). */
+export function formatHolidayDate(day: { year: number; month: number; day: number }): string {
+  return DateTime.utc(day.year, day.month, day.day).toLocaleString({
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+/** How far a day is from today, in words: "today", "tomorrow", "in 3 days", "yesterday", "2 days ago". */
+export function describeDaysAway(days: number): string {
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  if (days === -1) return 'yesterday'
+  return days > 0 ? `in ${days} days` : `${-days} days ago`
+}
+
+/** Tooltip / screen-reader note for a tile on a public holiday. */
+export function describeHolidays(names: readonly string[]): string {
+  return `Public holiday: ${names.join(', ')}`
 }
 
 /** Tooltip / screen-reader note for a home hour that daylight saving makes special. */

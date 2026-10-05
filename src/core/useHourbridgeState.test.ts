@@ -2,18 +2,18 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DateTime } from 'luxon'
-import { useTimeBuddyState } from '@core/useTimeBuddyState'
-import { WTB_STORAGE_KEY } from '@core/persistence'
+import { useHourbridgeState } from '@core/useHourbridgeState'
+import { HB_STORAGE_KEY } from '@core/persistence'
 import { DEFAULT_LOCATIONS, HOME_TIMEZONE } from '@core/timezones'
 import { CITY_OPTIONS } from '@core/cityOptions'
 
-describe('useTimeBuddyState', () => {
+describe('useHourbridgeState', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
   })
 
   it('defaults to catalog locations with IST as home', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     expect(result.current.locations.map((l) => l.id)).toEqual(
       DEFAULT_LOCATIONS.map((l) => l.id)
     )
@@ -23,7 +23,7 @@ describe('useTimeBuddyState', () => {
   })
 
   it('adds a location and refuses to remove home', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const paris = CITY_OPTIONS.find((c) => c.id === 'paris')!
     const before = result.current.locations.length
 
@@ -45,7 +45,7 @@ describe('useTimeBuddyState', () => {
   })
 
   it('setHome leaves exactly one home', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
 
     act(() => {
       result.current.setHome('london')
@@ -58,7 +58,7 @@ describe('useTimeBuddyState', () => {
   })
 
   it('toggles time format', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     expect(result.current.timeFormat).toBe('12h')
 
     act(() => {
@@ -68,7 +68,7 @@ describe('useTimeBuddyState', () => {
   })
 
   it('shifts date and returns to today', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const today = DateTime.now().setZone(result.current.home.iana)
 
     act(() => {
@@ -90,7 +90,7 @@ describe('useTimeBuddyState', () => {
   })
 
   it('selects, hovers, and nudges hours', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
 
     act(() => {
       result.current.selectHour(10)
@@ -119,13 +119,13 @@ describe('useTimeBuddyState', () => {
 })
 
 
-describe('useTimeBuddyState — ranges, settings, ordering', () => {
+describe('useHourbridgeState — ranges, settings, ordering', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
   })
 
   it('selects a range in either drag direction and anchors at the start of the drag', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.selectRange(14, 10))
     expect(result.current.selection).toEqual({ start: 10, end: 14 })
 
@@ -137,7 +137,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('resizes the meeting length within 1h..end-of-day', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.selectHour(20))
     act(() => result.current.resizeSelection(2))
     expect(result.current.selection).toEqual({ start: 20, end: 22 })
@@ -148,13 +148,13 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('ignores resize when nothing is selected', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.resizeSelection(1))
     expect(result.current.selection).toBeNull()
   })
 
   it('moves a range as a block and clamps at the day boundaries', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.selectRange(21, 23))
     act(() => result.current.nudgeHour(5))
     expect(result.current.selection).toEqual({ start: 21, end: 23 })
@@ -163,7 +163,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('clears the selection', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.selectRange(3, 5))
     act(() => result.current.selectHour(null))
     expect(result.current.selection).toBeNull()
@@ -171,7 +171,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('renames a location, trimming and refusing empty names', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.renameLocation('london', '  Team UK  '))
     expect(result.current.locations.find((l) => l.id === 'london')?.label).toBe('Team UK')
     act(() => result.current.renameLocation('london', '   '))
@@ -181,7 +181,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('moves a location up and down without leaving the list', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const ids = () => result.current.locations.map((l) => l.id)
     const first = ids()[0]
     act(() => result.current.moveLocation(first, -1))
@@ -194,7 +194,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('sorts rows west to east by UTC offset', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     act(() => result.current.sortByOffset())
     const now = DateTime.now()
     const offsets = result.current.locations.map((l) => now.setZone(l.iana).offset)
@@ -202,7 +202,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('persists theme, work hours and location order across remounts', () => {
-    const first = renderHook(() => useTimeBuddyState())
+    const first = renderHook(() => useHourbridgeState())
     act(() => {
       first.result.current.setTheme('dark')
       first.result.current.setWorkHours({ start: 8, end: 20 })
@@ -212,7 +212,7 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
     const order = first.result.current.locations.map((l) => l.id)
     first.unmount()
 
-    const second = renderHook(() => useTimeBuddyState())
+    const second = renderHook(() => useHourbridgeState())
     expect(second.result.current.theme).toBe('dark')
     expect(second.result.current.workHours).toEqual({ start: 8, end: 20 })
     expect(second.result.current.timeFormat).toBe('24h')
@@ -220,24 +220,24 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
   })
 
   it('persists the working days across remounts', () => {
-    const first = renderHook(() => useTimeBuddyState())
+    const first = renderHook(() => useHourbridgeState())
     expect(first.result.current.workHours.days).toBeUndefined() // Monday–Friday until you change it
     act(() => first.result.current.setWorkHours({ start: 9, end: 17, days: [7, 6, 1, 2, 3] }))
     first.unmount()
 
-    const second = renderHook(() => useTimeBuddyState())
+    const second = renderHook(() => useHourbridgeState())
     expect(second.result.current.workHours).toEqual({ start: 9, end: 17, days: [1, 2, 3, 6, 7] })
   })
 
   it('recovers from corrupt storage with the default locations', () => {
-    localStorage.setItem(WTB_STORAGE_KEY, '{not json')
-    const { result } = renderHook(() => useTimeBuddyState())
+    localStorage.setItem(HB_STORAGE_KEY, '{not json')
+    const { result } = renderHook(() => useHourbridgeState())
     expect(result.current.locations.map((l) => l.id)).toEqual(DEFAULT_LOCATIONS.map((l) => l.id))
   })
 
   it('never crashes when persisted locations have no home flag', () => {
     localStorage.setItem(
-      WTB_STORAGE_KEY,
+      HB_STORAGE_KEY,
       JSON.stringify({
         timeFormat: '12h',
         locations: [
@@ -246,20 +246,20 @@ describe('useTimeBuddyState — ranges, settings, ordering', () => {
         ]
       })
     )
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     expect(result.current.home.id).toBe('lon')
   })
 })
 
 
-describe('useTimeBuddyState — reorderLocation', () => {
+describe('useHourbridgeState — reorderLocation', () => {
   beforeEach(() => {
-    localStorage.removeItem(WTB_STORAGE_KEY)
+    localStorage.removeItem(HB_STORAGE_KEY)
   })
-  const ids = (r: { current: ReturnType<typeof useTimeBuddyState> }) => r.current.locations.map((l) => l.id)
+  const ids = (r: { current: ReturnType<typeof useHourbridgeState> }) => r.current.locations.map((l) => l.id)
 
   it('puts a row at its final index and shifts the rest', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const initial = ids(result)
     act(() => result.current.reorderLocation(initial[4], 0))
     expect(ids(result)).toEqual([initial[4], ...initial.slice(0, 4)])
@@ -268,7 +268,7 @@ describe('useTimeBuddyState — reorderLocation', () => {
   })
 
   it('clamps out-of-range targets and ignores unknown ids', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const initial = ids(result)
     act(() => result.current.reorderLocation(initial[0], 99))
     expect(ids(result)[initial.length - 1]).toBe(initial[0])
@@ -277,7 +277,7 @@ describe('useTimeBuddyState — reorderLocation', () => {
   })
 
   it('does not create a new array (or re-render consumers) for a no-op', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const before = result.current.locations
     act(() => result.current.reorderLocation(before[2].id, 2))
     expect(result.current.locations).toBe(before)
@@ -286,17 +286,17 @@ describe('useTimeBuddyState — reorderLocation', () => {
   })
 
   it('keeps the home flag on its city and persists the order', () => {
-    const { result, unmount } = renderHook(() => useTimeBuddyState())
+    const { result, unmount } = renderHook(() => useHourbridgeState())
     act(() => result.current.reorderLocation('ist', 0))
     expect(result.current.home.id).toBe('ist')
     const order = ids(result)
     unmount()
-    const again = renderHook(() => useTimeBuddyState())
+    const again = renderHook(() => useHourbridgeState())
     expect(ids(again.result)).toEqual(order)
   })
 
   it('applies several rapid moves in sequence (no stale reads)', () => {
-    const { result } = renderHook(() => useTimeBuddyState())
+    const { result } = renderHook(() => useHourbridgeState())
     const initial = ids(result)
     act(() => {
       result.current.moveLocation(initial[0], 1)

@@ -17,14 +17,14 @@
  */
 
 const identityName =
-  process.env.WIN_STORE_IDENTITY_NAME || "YourPublisher.WorldTimeBuddy";
+  process.env.WIN_STORE_IDENTITY_NAME || "YourPublisher.Hourbridge";
 const publisher = process.env.WIN_STORE_PUBLISHER || "CN=ms";
 const publisherDisplayName =
   process.env.WIN_STORE_PUBLISHER_DISPLAY_NAME || "Your Publisher";
 const applicationId =
   process.env.WIN_STORE_APPLICATION_ID || identityName;
 const displayName =
-  process.env.WIN_STORE_DISPLAY_NAME || "World Time Buddy";
+  process.env.WIN_STORE_DISPLAY_NAME || "Hourbridge";
 
 // macOS signing is opt-in: set CSC_LINK (base64 .p12 or path) + CSC_KEY_PASSWORD, or CSC_NAME
 // for a keychain identity. Notarization additionally needs APPLE_TEAM_ID and Apple credentials.
@@ -34,24 +34,24 @@ const macNotarize = macSigning && Boolean(process.env.APPLE_TEAM_ID);
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId: "com.worldtimebuddy.app",
-  productName: "World Time Buddy",
+  appId: "com.hourbridge.app",
+  productName: "Hourbridge",
   directories: {
     output: "release",
     buildResources: "build",
   },
   files: ["out/**/*"],
-  artifactName: "WorldTimeBuddy-${version}-${os}-${arch}.${ext}",
+  artifactName: "Hourbridge-${version}-${os}-${arch}.${ext}",
   win: {
     // Default Windows targets for GitHub Releases (Setup.exe + portable).
     // Store AppX is built separately via `npm run dist:win:store`.
     target: ["nsis", "portable"],
   },
   nsis: {
-    artifactName: "WorldTimeBuddy-${version}-win-${arch}-Setup.${ext}",
+    artifactName: "Hourbridge-${version}-win-${arch}-Setup.${ext}",
   },
   portable: {
-    artifactName: "WorldTimeBuddy-${version}-win-${arch}-portable.${ext}",
+    artifactName: "Hourbridge-${version}-win-${arch}-portable.${ext}",
   },
   appx: {
     identityName,
@@ -61,7 +61,7 @@ module.exports = {
     displayName,
     // Electron requires runFullTrust; electron-builder adds it if omitted.
     capabilities: ["runFullTrust"],
-    artifactName: "WorldTimeBuddy-${version}-win-store.${ext}",
+    artifactName: "Hourbridge-${version}-win-store.${ext}",
   },
   mac: {
     // dmg for people, zip for auto-updaters and Homebrew casks.

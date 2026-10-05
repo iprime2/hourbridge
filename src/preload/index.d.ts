@@ -2,10 +2,10 @@ type MenuCommand = 'add-location' | 'today' | 'prev-day' | 'next-day' | 'toggle-
 
 declare global {
   interface Window {
-    worldTimeBuddy: {
+    hourbridge: {
       platform: NodeJS.Platform
     }
-    wtb?: {
+    hb?: {
       openWidget: () => Promise<void>
       closeWidget: () => Promise<void>
       focusMain: () => Promise<void>

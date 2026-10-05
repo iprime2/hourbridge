@@ -80,6 +80,18 @@
   color: var(--text-muted);
 }
 
+.planner-person-holiday,
+.planner-holidays {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.planner-holidays {
+  font-size: 0.8rem;
+}
+
 .planner-summary {
   margin: 8px 0 0;
   font-size: 0.8rem;

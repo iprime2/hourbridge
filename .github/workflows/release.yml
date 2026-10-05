@@ -209,10 +209,10 @@ jobs:
         with:
           name: windows-installers-${{ needs.quality.outputs.version }}
           path: |
-            release/WorldTimeBuddy-*-Setup.exe
-            release/WorldTimeBuddy-*-portable.exe
-            release/WorldTimeBuddy-*-win-store.appx
-            release/WorldTimeBuddy-*-win-store.appxupload
+            release/Hourbridge-*-Setup.exe
+            release/Hourbridge-*-portable.exe
+            release/Hourbridge-*-win-store.appx
+            release/Hourbridge-*-win-store.appxupload
           # The .appx exists only when the Store secrets are set, and .appxupload is not always
           # produced; the installer and portable .exe are always there, so this still fails on a bad build.
           if-no-files-found: error
@@ -223,8 +223,8 @@ jobs:
         with:
           name: macos-dmgs-${{ needs.quality.outputs.version }}
           path: |
-            release/WorldTimeBuddy-*.dmg
-            release/WorldTimeBuddy-*-mac-*.zip
+            release/Hourbridge-*.dmg
+            release/Hourbridge-*-mac-*.zip
           if-no-files-found: error
 
   publish:

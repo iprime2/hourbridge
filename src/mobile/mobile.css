@@ -292,6 +292,14 @@ html.is-mobile-ui body {
   opacity: 0.85;
 }
 
+.m-tile .tile-holiday {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  display: flex;
+  opacity: 0.9;
+}
+
 .m-tile.is-selected {
   z-index: 1;
   box-shadow: inset 0 0 0 2px var(--sel), inset 0 0 0 4px var(--sel-inner);
@@ -356,6 +364,33 @@ html.is-mobile-ui body {
 
 .m-planner .planner {
   padding: 12px;
+}
+
+/* The holiday list sits under the planner inside the same scrolling area. */
+.m-planner .upcoming {
+  margin-top: 8px;
+  padding: 10px 12px 12px;
+}
+
+/* The planner area already scrolls, so the list needs no scroll of its own; countries stack. */
+.m-planner .upcoming {
+  min-height: 0;
+}
+
+.m-planner .upcoming-rows {
+  background: none;
+}
+
+.m-planner .upcoming-row {
+  grid-template-columns: 1fr;
+}
+
+.m-planner .upcoming-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding-top: 0;
 }
 
 .m-planner .planner-title {

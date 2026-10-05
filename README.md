@@ -1,6 +1,6 @@
-# World Time Buddy
+# Hourbridge
 
-Timezone planner inspired by [worldtimebuddy.com](https://www.worldtimebuddy.com/). Line up any number of cities, see at a glance who is awake or at work, pick a meeting time, and share it.
+**Hourbridge** is a timezone planner. Line up any number of cities, see at a glance who is awake, at work or on a public holiday, pick a meeting time, and share it.
 
 Runs in **any modern browser** (installable, works offline) and as native apps on **macOS**, **Windows** and **iOS** — all from one TypeScript codebase. The web app is the easiest way to use it: nothing to download, nothing to sign, free to host (see [Web app](#web-app)).
 
@@ -19,6 +19,7 @@ Runs in **any modern browser** (installable, works offline) and as native apps o
 
 - Any number of cities in one 24-hour grid; hover, click, or **drag** across hours to select a meeting window.
 - **Your working hours** are set once, in your home timezone (both ends included — 1 PM – 9 PM covers the 1 PM … 9 PM tiles) and shown in *every* city's local time, so the green columns line up down the grid. **Your working days** default to Monday–Friday; turn any day on or off in Settings (for example off Thursday and Friday, working Saturday and Sunday) and the green tiles, the planner and the widget follow. A small moon on a green tile means that city is asleep then; sand is awake-but-outside-your-hours, dark is night. A bar under green tiles means it isn't conveyed by colour alone.
+- **Public holidays** for every city on screen, offline: a small pennant marks each tile that falls on a public holiday in that city's country (judged on the city's own calendar date, so the tile after midnight in Tokyo is not marked for the day before), the tooltip and screen-reader label name the holiday, and the planner lists them. A holiday in another city takes that city out of the "best times"; a holiday where *you* are is a day off by default (Settings → *Public holidays in … are days off*; turn it off if you work through them). Data covers 205 countries for 2025–2030 — see [Public-holiday data](#public-holiday-data) for what is and isn't in it. The app tells you in Settings when a country's data is partial or missing instead of silently showing no holidays. An **Upcoming holidays** panel at the bottom of both layouts lists the next three holiday dates (with how far away each is, on that country's own date) for every country on screen at once, starting from the day the grid shows; cities in the same country share a row, and when it has nothing to list it says why (no data for that country, a timezone with no country, a file that did not load, the end of the data).
 - **Meeting planner**: shows each person's local time for the selection, whether it is inside your working hours and who would be asleep, the best times (you're working and nobody's asleep) or the best compromise when there are none, a duration stepper, and one-tap **Copy details** / **Add to calendar (.ics)** — or the native **Share sheet** on iOS.
 - Live **"Now" line**, half-hour and 45-minute zones handled correctly (IST ↔ US, Nepal), day-change labels on tiles.
 - **DST awareness**: a `DST` badge while daylight time is in effect and a dashed `DST soon` badge when a clock change is within ~6 weeks (tooltip has the exact date).
@@ -53,12 +54,12 @@ src/web/        Web shell: picks the desktop or touch UI, install prompt, servic
 src/main/       Electron main process (windows, menu, menu-bar clock, IPC validation)
 src/preload/    Electron preload: the only bridge between renderer and main
 ios/            Capacitor-generated Xcode project (Swift Package Manager)
-scripts/        Brand/icon generator (no dependencies) and the service-worker build step
+scripts/        Brand/icon generator (no dependencies), the service-worker build step and the public-holiday data generator
 vercel.json     Hosting config for the web app (headers, CSP, build)
 .claude/skills/ Engineering playbook for this repo (architecture rules, checklists)
 ```
 
-Rules that keep this working: time math lives only in `src/core`; `src/core` never imports from `renderer`/`mobile`; platform features sit behind small adapters (`window.wtb?.` on desktop, `src/mobile/native.ts` on iOS) and degrade to no-ops in a browser and in tests. See [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md).
+Rules that keep this working: time math lives only in `src/core`; `src/core` never imports from `renderer`/`mobile`; platform features sit behind small adapters (`window.hb?.` on desktop, `src/mobile/native.ts` on iOS) and degrade to no-ops in a browser and in tests. See [`.claude/skills/lead-engineer/SKILL.md`](.claude/skills/lead-engineer/SKILL.md).
 
 ## Prerequisites
 
@@ -68,8 +69,8 @@ Rules that keep this working: time math lives only in `src/core`; `src/core` nev
 ## Setup
 
 ```bash
-git clone https://github.com/iprime2/world-time-buddy.git
-cd world-time-buddy
+git clone https://github.com/iprime2/hourbridge.git
+cd hourbridge
 npm install
 ```
 
@@ -99,7 +100,25 @@ npm run preview:web    # serve dist-web/ at http://localhost:4175 to try the ins
 npm run preflight:web  # check dist-web/ in real Chromium with vercel.json's headers (needs Playwright, see below)
 ```
 
-`preflight:web` serves the built site with the exact headers from `vercel.json`, then checks it at desktop and phone sizes: no CSP violations or console errors, the service worker activates, the manifest is installable, the right layout is chosen, and the app reloads offline. It exits non-zero if anything fails. Options: `--shots <dir>` saves light/dark screenshots, `--clean` rehearses Vercel's own install and build from the last commit, `--serve-only` only serves. Playwright is not a project dependency; install it outside the repo with `npm i --no-save --prefix "${TMPDIR:-/tmp}/wtb-playwright" playwright-core` (details in `.claude/skills/web-preflight/SKILL.md`).
+`preflight:web` serves the built site with the exact headers from `vercel.json`, then checks it at desktop and phone sizes: no CSP violations or console errors, the service worker activates, the manifest is installable, the right layout is chosen, the app reloads offline, and — with the clock fixed on a public holiday — a country's holiday file loads under the CSP, is kept by the service worker and still shows offline. It exits non-zero if anything fails. Options: `--shots <dir>` saves light/dark screenshots, `--clean` rehearses Vercel's own install and build from the last commit, `--serve-only` only serves. Playwright is not a project dependency; install it outside the repo with `npm i --no-save --prefix "${TMPDIR:-/tmp}/hb-playwright" playwright-core` (details in `.claude/skills/web-preflight/SKILL.md`).
+
+### Public-holiday data
+
+The app ships generated, per-country files in `src/core/holidayData/` (one small JSON file per country, plus `zones.json`, the timezone → country table, and `meta.json`). Each country's file is loaded by a dynamic `import()` the first time a city in that country is on screen, so the holiday library itself is never part of the app and nothing is fetched from a third party. On the web the files are emitted to `assets/holidays/` and are cached by the service worker when first used rather than at install (there are ~200 of them and a visitor needs a handful).
+
+```bash
+npm run generate:holidays                          # years 2025–2030, tz files from /usr/share/zoneinfo
+npm run generate:holidays -- --from 2026 --to 2031 # move the window (do this before the last year runs out)
+```
+
+The generator (`scripts/generate-holidays.mjs`) reads rules from the `date-holidays` devDependency and the timezone → country mapping from the system tz database (`zone.tab`, `tzdata.zi`, `iso3166.tab`; set `TZDIR` to use another copy). Only public holidays, in English where the source has it. The output is deterministic and committed; builds, CI and Vercel never run the generator. Run it again when `date-holidays` or tzdata moves, and edit nothing in `holidayData/` by hand (`holidayData.test.ts` checks the files' shape, ranges and a few holidays everyone knows, so a bad regeneration fails before it ships).
+
+Known gaps, shown in Settings rather than hidden:
+
+- **India is partial.** Only the fixed-date national holidays (Republic Day, Independence Day, Gandhi Jayanti, …) are in the data. Festival holidays such as Holi, Diwali and Eid move every year and differ by state, and the source does not have them yet.
+- **42 countries have no data** in the source (for example Nepal). They show no holidays, and Settings says so.
+- UTC and `Etc/*` zones belong to no country and never show holidays.
+- Outside the generated years nothing is shown.
 
 ## Packaging
 
@@ -130,7 +149,7 @@ Writes `build/icon.png`, `build/icon-mac.png` (inset for the macOS icon grid), t
 The same planner as a website and installable app (PWA). There is one build, `dist-web/`, and one page:
 
 - On a wide screen with a mouse or trackpad (`min-width: 900px` and `pointer: fine`) it shows the **desktop grid**; on phones and touch-first tablets it shows the **touch layout**. Resizing the window switches live and keeps your cities and settings.
-- It is **offline-first**: a service worker caches the whole site on the first visit. Each deploy gets its own cache (named by a hash of every file), the new version installs in the background and takes over the next time the app is opened — an open tab is never swapped mid-use — and the old cache is deleted.
+- It is **offline-first**: a service worker caches the whole site on the first visit (the per-country public-holiday files are kept the first time a country is used, so a country you have never opened has no holidays offline). Each deploy gets its own cache (named by a hash of every file), the new version installs in the background and takes over the next time the app is opened — an open tab is never swapped mid-use — and the old cache is deleted.
 - **Installable**: Chromium browsers offer an *Install* button (the app shows its own prompt, remembered for 30 days if dismissed); iOS Safari has no install API, so the app explains *Share → Add to Home Screen*.
 - Nothing leaves the device: there is no backend, no analytics and no third-party requests. Your cities and settings live in the browser's local storage.
 - Browser differences: there is no desktop widget or menu-bar clock (they need Electron); **Share** uses the browser's share sheet when it has one (with the `.ics` attached where supported) and otherwise copies the details to the clipboard.
@@ -139,20 +158,20 @@ The same planner as a website and installable app (PWA). There is one build, `di
 
 `vercel.json` already contains everything Vercel needs.
 
-1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New… → Project** → import `iprime2/world-time-buddy` (Vercel can read private repositories you grant it).
+1. Sign in at [vercel.com](https://vercel.com) with GitHub → **Add New… → Project** → import `iprime2/hourbridge` (Vercel can read private repositories you grant it).
 2. Keep **Root Directory** as `./`. When imported, Vercel's form showed Vite's placeholder defaults (`vite build`, `dist`, `yarn install`…) instead of the values in `vercel.json`, so enter them by hand: **Application Preset** *Other*, **Install Command** `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`, **Build Command** `npm run build:web`, **Output Directory** `dist-web`. They match `vercel.json`. No environment variables are needed.
 3. **Deploy.** Every push to `main` then redeploys production, and every pull request gets its own preview URL.
 
 Things to know:
 
 - **Free tier terms:** Vercel's Hobby plan is free but restricted to personal, non-commercial use. If the site earns money or is run for a business, use another host or the Pro plan.
-- **Any static host works** (Netlify, Cloudflare Pages, GitHub Pages, S3…): run `npm run build:web` and serve `dist-web/`. The build uses relative URLs, so it also works under a sub-path such as `https://user.github.io/world-time-buddy/`. Copy the headers from `vercel.json` if the host lets you set them: a strict Content-Security-Policy (no third-party scripts, styles, fonts or connections), `nosniff`, no framing, no referrer, and `Cache-Control: no-cache` on `sw.js` so updates are noticed.
+- **Any static host works** (Netlify, Cloudflare Pages, GitHub Pages, S3…): run `npm run build:web` and serve `dist-web/`. The build uses relative URLs, so it also works under a sub-path such as `https://user.github.io/hourbridge/`. Copy the headers from `vercel.json` if the host lets you set them: a strict Content-Security-Policy (no third-party scripts, styles, fonts or connections), `nosniff`, no framing, no referrer, and `Cache-Control: no-cache` on `sw.js` so updates are noticed.
 - **`ELECTRON_SKIP_BINARY_DOWNLOAD=1`** in the install command stops the build from downloading Electron's ~100 MB binary, which a website build never runs.
-- **Name:** [worldtimebuddy.com](https://www.worldtimebuddy.com/) is an existing product. Before you publish under a public domain, pick a distinct name (the displayed name is in `src/web/public/manifest.webmanifest`, `src/web/index.html` and the app header).
+- **Name:** the app is called **Hourbridge**. The name is only used inside the code and the apps; no domain is registered and nothing is published under it yet, so check the domain, the App Store / Microsoft Store names and trademarks before you publish under a public name (the displayed name is in `src/web/public/manifest.webmanifest`, `src/web/index.html` and the app header).
 
 ## macOS signing & notarization
 
-Builds are **unsigned by default** so CI needs no Apple secrets, and macOS Gatekeeper blocks freshly downloaded unsigned apps ([#7](https://github.com/iprime2/world-time-buddy/issues/7)). Signing and notarizing needs a paid Apple Developer Program membership; until then, use the [web app](#web-app) or follow *First launch on macOS* below. `electron-builder.cjs` switches on signing automatically when credentials are present:
+Builds are **unsigned by default** so CI needs no Apple secrets, and macOS Gatekeeper blocks freshly downloaded unsigned apps ([#7](https://github.com/iprime2/hourbridge/issues/7)). Signing and notarizing needs a paid Apple Developer Program membership; until then, use the [web app](#web-app) or follow *First launch on macOS* below. `electron-builder.cjs` switches on signing automatically when credentials are present:
 
 | Env var / repo secret | Purpose |
 | --- | --- |
@@ -166,18 +185,18 @@ With `CSC_LINK` set the app is signed with the hardened runtime and `build/entit
 
 ### First launch on macOS (unsigned builds)
 
-Downloaded builds show *"Apple could not verify 'World Time Buddy' is free of malware…"* with only **Done** / **Move to Bin**. That is Gatekeeper reacting to the missing signature, not a broken app. To open it once:
+Downloaded builds show *"Apple could not verify 'Hourbridge' is free of malware…"* with only **Done** / **Move to Bin**. That is Gatekeeper reacting to the missing signature, not a broken app. To open it once:
 
 **macOS 15 Sequoia and later** (the Control-click → Open shortcut was removed):
 
 1. Open the app, then click **Done** (not *Move to Bin*).
 2. Go to **System Settings → Privacy & Security** and scroll to *Security*.
-3. Next to *"World Time Buddy" was blocked…*, click **Open Anyway**, authenticate, then **Open**.
+3. Next to *"Hourbridge" was blocked…*, click **Open Anyway**, authenticate, then **Open**.
 
 Or, from Terminal (removes the download quarantine flag):
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/World Time Buddy.app"
+xattr -dr com.apple.quarantine "/Applications/Hourbridge.app"
 ```
 
 **macOS 14 and earlier:** Control-click the app → **Open** → **Open**.
@@ -199,7 +218,7 @@ npm run ios:open    # sync, then open in Xcode
 
 **Ship it:**
 
-1. In Xcode → *App* target → *Signing & Capabilities*: choose your team and change the bundle id from the placeholder `com.worldtimebuddy.app` (also update `appId` in `capacitor.config.ts`).
+1. In Xcode → *App* target → *Signing & Capabilities*: choose your team and change the bundle id from the placeholder `com.hourbridge.app` (also update `appId` in `capacitor.config.ts`).
 2. Bump *Version* / *Build* (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`).
 3. *Product → Archive → Distribute App → App Store Connect*, then submit the build from TestFlight.
 
@@ -214,27 +233,27 @@ Microsoft Store packaging uses electron-builder's **AppX** target (`appx`). In e
 ### Partner Center setup
 
 1. Create a [Microsoft Partner Center](https://partner.microsoft.com/) developer account (individual registration is currently free — confirm current terms on Microsoft's site).
-2. Reserve the app name **World Time Buddy**.
+2. Reserve the app name **Hourbridge**.
 3. Open the app's **Product identity** page and copy:
-   - **Package/Identity/Name** → `WIN_STORE_IDENTITY_NAME` (e.g. `YourPublisher.WorldTimeBuddy`)
+   - **Package/Identity/Name** → `WIN_STORE_IDENTITY_NAME` (e.g. `YourPublisher.Hourbridge`)
    - **Publisher** (`CN=...`) → `WIN_STORE_PUBLISHER`
    - **Publisher display name** → `WIN_STORE_PUBLISHER_DISPLAY_NAME`
 4. Optionally set `WIN_STORE_APPLICATION_ID` and `WIN_STORE_DISPLAY_NAME`.
 
-Identity defaults in `electron-builder.cjs` are placeholders (publisher `CN=ms`, identity `YourPublisher.WorldTimeBuddy`) that exist so the build can run anywhere. A package built with them is **unsigned and cannot be installed or submitted**, so the release workflow does not build one: it builds and attaches the `.appx` **only when these three repository secrets are set** — `WIN_STORE_IDENTITY_NAME`, `WIN_STORE_PUBLISHER` and `WIN_STORE_PUBLISHER_DISPLAY_NAME` (plus optionally `WIN_STORE_APPLICATION_ID` / `WIN_STORE_DISPLAY_NAME`). Without them the Windows job skips the step and says so in the run summary. Pull requests still build a placeholder package on Windows (`win_package`) and inspect it, so the config, tiles and SDK tooling keep working.
+Identity defaults in `electron-builder.cjs` are placeholders (publisher `CN=ms`, identity `YourPublisher.Hourbridge`) that exist so the build can run anywhere. A package built with them is **unsigned and cannot be installed or submitted**, so the release workflow does not build one: it builds and attaches the `.appx` **only when these three repository secrets are set** — `WIN_STORE_IDENTITY_NAME`, `WIN_STORE_PUBLISHER` and `WIN_STORE_PUBLISHER_DISPLAY_NAME` (plus optionally `WIN_STORE_APPLICATION_ID` / `WIN_STORE_DISPLAY_NAME`). Without them the Windows job skips the step and says so in the run summary. Pull requests still build a placeholder package on Windows (`win_package`) and inspect it, so the config, tiles and SDK tooling keep working.
 
 ### Build the Store package (Windows only)
 
 AppX packaging requires the Windows SDK / runner; it is not supported on Linux.
 
 ```bash
-export WIN_STORE_IDENTITY_NAME="YourPublisher.WorldTimeBuddy"
+export WIN_STORE_IDENTITY_NAME="YourPublisher.Hourbridge"
 export WIN_STORE_PUBLISHER="CN=Your Certificate Subject"
 export WIN_STORE_PUBLISHER_DISPLAY_NAME="Your Publisher"
 npm run dist:win:store
 ```
 
-Output: `release/WorldTimeBuddy-<version>-win-store.appx`.
+Output: `release/Hourbridge-<version>-win-store.appx`.
 
 **Tiles:** `build/appx/` holds 30 images generated by `npm run generate:icons` — every display scale (100/125/150/200/400 %) of the four tiles, plus the taskbar target sizes (16–256 px, plated and unplated). Only qualified names (`*.scale-*`, `*.targetsize-*`) are kept: electron-builder indexes them with `makepri` into `resources.pri`, and a bare-named file would compete with its `scale-100` sibling. Don't hand-add unqualified tiles.
 
@@ -273,11 +292,11 @@ Expected release assets:
 
 | Asset | Platform |
 | --- | --- |
-| `WorldTimeBuddy-X.Y.Z-win-x64-Setup.exe` | Windows installer |
-| `WorldTimeBuddy-X.Y.Z-win-x64-portable.exe` | Windows portable |
-| `WorldTimeBuddy-X.Y.Z-win-store.appx` | Windows Store package (only when the `WIN_STORE_*` secrets are set) |
-| `WorldTimeBuddy-X.Y.Z-mac-x64.dmg` / `-mac-arm64.dmg` | macOS (Intel / Apple Silicon) |
-| `WorldTimeBuddy-X.Y.Z-mac-x64.zip` / `-mac-arm64.zip` | macOS archives (updaters, Homebrew) |
+| `Hourbridge-X.Y.Z-win-x64-Setup.exe` | Windows installer |
+| `Hourbridge-X.Y.Z-win-x64-portable.exe` | Windows portable |
+| `Hourbridge-X.Y.Z-win-store.appx` | Windows Store package (only when the `WIN_STORE_*` secrets are set) |
+| `Hourbridge-X.Y.Z-mac-x64.dmg` / `-mac-arm64.dmg` | macOS (Intel / Apple Silicon) |
+| `Hourbridge-X.Y.Z-mac-x64.zip` / `-mac-arm64.zip` | macOS archives (updaters, Homebrew) |
 
 The iOS app is **not** published by the release workflow: App Store distribution needs your signing identity, so archive and upload from Xcode (or add a signed `fastlane`/`xcodebuild` job with your own secrets).
 
@@ -294,6 +313,7 @@ The iOS app is **not** published by the release workflow: App Store distribution
 - [Vite](https://vite.dev/) static build + a small hand-written service worker for the web app
 - [Capacitor](https://capacitorjs.com/) 8 (iOS, Swift Package Manager)
 - [Luxon](https://moment.github.io/luxon/) for all time-zone math
+- Public-holiday data generated from [date-holidays](https://github.com/commenthol/date-holidays) (code ISC; holiday data [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) © the date-holidays contributors) and the IANA tz database (public domain). This is the attribution CC BY asks for; keep it if you redistribute the data.
 - Vitest + Testing Library
 
 ## Private repository notes

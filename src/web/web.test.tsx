@@ -118,7 +118,7 @@ describe('InstallPrompt', () => {
     expect(event.defaultPrevented).toBe(true) // kept for later instead of the browser’s own mini-bar
 
     const banner = screen.getByRole('region', { name: /install the app/i })
-    expect(within(banner).getByText(/install world time buddy/i)).toBeInTheDocument()
+    expect(within(banner).getByText(/install hourbridge/i)).toBeInTheDocument()
     await user.click(within(banner).getByRole('button', { name: 'Install' }))
     expect(prompt).toHaveBeenCalledTimes(1)
     // A captured event can be used once, so the banner goes away afterwards.

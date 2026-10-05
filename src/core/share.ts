@@ -88,11 +88,11 @@ export function buildIcs(plan: MeetingPlan, options: IcsOptions): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//World Time Buddy//EN',
+    'PRODID:-//Hourbridge//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${options.uid ?? `${icsUtc(plan.start)}@worldtimebuddy.app`}`,
+    `UID:${options.uid ?? `${icsUtc(plan.start)}@hourbridge.app`}`,
     `DTSTAMP:${stamp}`,
     `DTSTART:${icsUtc(plan.start)}`,
     `DTEND:${icsUtc(plan.end)}`,

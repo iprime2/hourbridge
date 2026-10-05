@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import Toolbar from '@renderer/components/Toolbar'
 import TimeGrid from '@renderer/components/TimeGrid'
 import PlannerBar from '@ui/PlannerBar'
-import { MoonIcon } from '@ui/icons'
+import UpcomingHolidays from '@ui/UpcomingHolidays'
+import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { isEditableTarget } from '@ui/browser'
 import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
-import { useTimeBuddyState } from '@core/useTimeBuddyState'
+import { useHourbridgeState } from '@core/useHourbridgeState'
 
 export default function App() {
-  const state = useTimeBuddyState()
+  const state = useHourbridgeState()
   const now = useNow('minute')
   useTheme(state.theme)
 
@@ -21,8 +22,8 @@ export default function App() {
   const homeZone = state.home.iana
 
   const columns = useMemo(
-    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone),
-    [state.selectedDate, state.locations, homeZone]
+    () => buildTimelineForLocations(state.selectedDate, state.locations, homeZone, state.holidays),
+    [state.selectedDate, state.locations, homeZone, state.holidays]
   )
   const summary = useMemo(
     () => summarizePlanner(columns, state.locations, state.workHours),
@@ -56,7 +57,7 @@ export default function App() {
 
   // Native menu (macOS/Windows) drives the same actions.
   useEffect(() => {
-    return window.wtb?.onMenuCommand?.((command) => {
+    return window.hb?.onMenuCommand?.((command) => {
       if (command === 'add-location') setAddOpen(true)
       else if (command === 'today') goToToday()
       else if (command === 'prev-day') shiftDate(-1)
@@ -70,7 +71,7 @@ export default function App() {
     // Best effort: the menu-bar clock is a convenience, so a refused payload must not surface
     // as an unhandled rejection in the UI.
     void Promise.resolve(
-      window.wtb?.publishState?.({
+      window.hb?.publishState?.({
         locations: state.locations,
         timeFormat: state.timeFormat,
         theme: state.theme
@@ -84,6 +85,7 @@ export default function App() {
         selectedDate={state.selectedDate}
         homeZone={homeZone}
         homeLabel={state.home.label}
+        locations={state.locations}
         timeFormat={state.timeFormat}
         theme={state.theme}
         workHours={state.workHours}
@@ -103,7 +105,7 @@ export default function App() {
         onWorkHours={state.setWorkHours}
         onSortByOffset={state.sortByOffset}
         onAddLocation={state.addLocation}
-        onOpenWidget={window.wtb?.openWidget ? () => void window.wtb?.openWidget() : undefined}
+        onOpenWidget={window.hb?.openWidget ? () => void window.hb?.openWidget() : undefined}
       />
 
       <main className="app-main">
@@ -146,6 +148,8 @@ export default function App() {
         onClear={() => state.selectHour(null)}
       />
 
+      <UpcomingHolidays locations={state.locations} from={state.selectedDate} now={now} />
+
       <footer className="legend" aria-label="Legend">
         <span className="legend-item">
           <span className="legend-swatch is-work" /> Your working hours
@@ -158,6 +162,9 @@ export default function App() {
         </span>
         <span className="legend-item">
           <MoonIcon size={12} /> Asleep during your hours
+        </span>
+        <span className="legend-item">
+          <HolidayIcon size={12} /> Public holiday
         </span>
         <span className="legend-item legend-keys">
           <kbd className="kbd">T</kbd> today · <kbd className="kbd">[</kbd>

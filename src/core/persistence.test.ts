@@ -1,44 +1,44 @@
 import { describe, expect, it } from 'vitest'
 import {
   isWidgetView,
-  loadPersistedBuddyState,
-  loadResolvedBuddyState,
+  loadPersistedState,
+  loadResolvedState,
   normalizeWorkHours,
-  parsePersistedBuddyState,
+  parsePersistedState,
   PERSIST_VERSION,
   sanitizeLocations,
-  savePersistedBuddyState,
+  savePersistedState,
   subscribePersist,
-  WTB_STORAGE_KEY
+  HB_STORAGE_KEY
 } from '@core/persistence'
 import { DEFAULT_LOCATIONS } from '@core/timezones'
 
 describe('persistence', () => {
-  it('parses valid persisted buddy state', () => {
+  it('parses valid persisted state', () => {
     const raw = JSON.stringify({
       locations: DEFAULT_LOCATIONS,
       timeFormat: '24h'
     })
-    const parsed = parsePersistedBuddyState(raw)
+    const parsed = parsePersistedState(raw)
     expect(parsed?.timeFormat).toBe('24h')
     expect(parsed?.locations).toHaveLength(DEFAULT_LOCATIONS.length)
   })
 
   it('rejects invalid payloads', () => {
-    expect(parsePersistedBuddyState(null)).toBeNull()
-    expect(parsePersistedBuddyState('{')).toBeNull()
-    expect(parsePersistedBuddyState('not-json')).toBeNull()
-    expect(parsePersistedBuddyState(JSON.stringify({ locations: [], timeFormat: '12h' }))).toBeNull()
+    expect(parsePersistedState(null)).toBeNull()
+    expect(parsePersistedState('{')).toBeNull()
+    expect(parsePersistedState('not-json')).toBeNull()
+    expect(parsePersistedState(JSON.stringify({ locations: [], timeFormat: '12h' }))).toBeNull()
     expect(
-      parsePersistedBuddyState(JSON.stringify({ locations: DEFAULT_LOCATIONS, timeFormat: '9h' }))
+      parsePersistedState(JSON.stringify({ locations: DEFAULT_LOCATIONS, timeFormat: '9h' }))
     ).toBeNull()
     expect(
-      parsePersistedBuddyState(
+      parsePersistedState(
         JSON.stringify({ locations: [{ id: 1, label: 'x', iana: 'UTC' }], timeFormat: '12h' })
       )
     ).toBeNull()
     expect(
-      parsePersistedBuddyState(JSON.stringify({ timeFormat: '12h' }))
+      parsePersistedState(JSON.stringify({ timeFormat: '12h' }))
     ).toBeNull()
   })
 
@@ -60,12 +60,12 @@ describe('persistence', () => {
         store.set(key, value)
       }
     }
-    savePersistedBuddyState(
+    savePersistedState(
       { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h' },
       storage
     )
-    expect(store.get(WTB_STORAGE_KEY)).toContain('IST')
-    expect(loadPersistedBuddyState(storage)?.timeFormat).toBe('12h')
+    expect(store.get(HB_STORAGE_KEY)).toContain('IST')
+    expect(loadPersistedState(storage)?.timeFormat).toBe('12h')
   })
 
   it('returns null for corrupt JSON in storage', () => {
@@ -73,7 +73,7 @@ describe('persistence', () => {
       getItem: () => '{corrupt',
       setItem: () => undefined
     }
-    expect(loadPersistedBuddyState(storage)).toBeNull()
+    expect(loadPersistedState(storage)).toBeNull()
   })
 })
 
@@ -81,14 +81,14 @@ describe('persistence v2', () => {
   const v1 = { locations: DEFAULT_LOCATIONS, timeFormat: '12h' }
 
   it('migrates v1 payloads by filling defaults', () => {
-    const parsed = parsePersistedBuddyState(JSON.stringify(v1))
+    const parsed = parsePersistedState(JSON.stringify(v1))
     expect(parsed?.version).toBe(PERSIST_VERSION)
     expect(parsed?.theme).toBe('system')
     expect(parsed?.workHours).toEqual({ start: 9, end: 17 })
   })
 
   it('keeps valid current-version settings and replaces garbled ones', () => {
-    const ok = parsePersistedBuddyState(
+    const ok = parsePersistedState(
       JSON.stringify({ ...v1, version: 3, theme: 'dark', workHours: { start: 8, end: 20 } })
     )
     expect(ok?.theme).toBe('dark')
@@ -96,7 +96,7 @@ describe('persistence v2', () => {
 
     // Inclusive 0–23 hours: end may equal start, but 24, reversed or negative values are rejected.
     expect(
-      parsePersistedBuddyState(JSON.stringify({ ...v1, version: 3, workHours: { start: 10, end: 10 } }))
+      parsePersistedState(JSON.stringify({ ...v1, version: 3, workHours: { start: 10, end: 10 } }))
         ?.workHours
     ).toEqual({ start: 10, end: 10 })
 
@@ -108,7 +108,7 @@ describe('persistence v2', () => {
       'x',
       null
     ]) {
-      const bad = parsePersistedBuddyState(
+      const bad = parsePersistedState(
         JSON.stringify({ ...v1, version: 3, theme: 'neon', workHours })
       )
       expect(bad?.theme).toBe('system')
@@ -118,7 +118,7 @@ describe('persistence v2', () => {
 
   describe('migrating working hours from the half-open v1/v2 shape', () => {
     const migrate = (version: number | undefined, workHours: unknown) =>
-      parsePersistedBuddyState(
+      parsePersistedState(
         JSON.stringify({ ...v1, ...(version === undefined ? {} : { version }), workHours })
       )?.workHours
 
@@ -160,17 +160,17 @@ describe('persistence v2', () => {
       const store = new Map<string, string>()
       const storage = { setItem: (k: string, v: string) => void store.set(k, v) }
       const migrated = migrate(2, { start: 13, end: 21 })!
-      savePersistedBuddyState(
+      savePersistedState(
         { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h', workHours: migrated },
         storage
       )
-      expect(JSON.parse(store.get(WTB_STORAGE_KEY)!).version).toBe(PERSIST_VERSION)
-      expect(parsePersistedBuddyState(store.get(WTB_STORAGE_KEY)!)?.workHours).toEqual(migrated)
+      expect(JSON.parse(store.get(HB_STORAGE_KEY)!).version).toBe(PERSIST_VERSION)
+      expect(parsePersistedState(store.get(HB_STORAGE_KEY)!)?.workHours).toEqual(migrated)
     })
   })
 
   it('drops locations whose zone the runtime cannot resolve', () => {
-    const parsed = parsePersistedBuddyState(
+    const parsed = parsePersistedState(
       JSON.stringify({
         timeFormat: '12h',
         locations: [
@@ -184,7 +184,7 @@ describe('persistence v2', () => {
 
   it('returns null when no location survives sanitizing', () => {
     expect(
-      parsePersistedBuddyState(
+      parsePersistedState(
         JSON.stringify({ timeFormat: '12h', locations: [{ id: 'x', label: 'X', iana: 'Nope/Zone' }] })
       )
     ).toBeNull()
@@ -218,11 +218,11 @@ describe('persistence v2', () => {
     const seen: string[] = []
     const off = subscribePersist((json) => seen.push(json))
 
-    savePersistedBuddyState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '24h', theme: 'dark' }, storage)
+    savePersistedState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '24h', theme: 'dark' }, storage)
     off()
-    savePersistedBuddyState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '24h' }, storage)
+    savePersistedState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '24h' }, storage)
 
-    expect(JSON.parse(store.get(WTB_STORAGE_KEY)!).version).toBe(PERSIST_VERSION)
+    expect(JSON.parse(store.get(HB_STORAGE_KEY)!).version).toBe(PERSIST_VERSION)
     expect(seen).toHaveLength(1)
     expect(JSON.parse(seen[0]).theme).toBe('dark')
   })
@@ -236,23 +236,23 @@ describe('persistence v2', () => {
       }
     }
     expect(() =>
-      savePersistedBuddyState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '12h' }, throwing)
+      savePersistedState({ locations: [...DEFAULT_LOCATIONS], timeFormat: '12h' }, throwing)
     ).not.toThrow()
     off()
     expect(seen).toHaveLength(0)
 
     expect(
-      loadPersistedBuddyState({
+      loadPersistedState({
         getItem: () => {
           throw new Error('SecurityError')
         }
       })
     ).toBeNull()
-    expect(loadPersistedBuddyState(null)).toBeNull()
+    expect(loadPersistedState(null)).toBeNull()
   })
 
   it('resolves defaults on first run', () => {
-    const resolved = loadResolvedBuddyState({ getItem: () => null })
+    const resolved = loadResolvedState({ getItem: () => null })
     expect(resolved.locations.map((l) => l.id)).toEqual(DEFAULT_LOCATIONS.map((l) => l.id))
     expect(resolved.theme).toBe('system')
     expect(resolved.workHours).toEqual({ start: 9, end: 17 })
@@ -262,7 +262,7 @@ describe('persistence v2', () => {
 describe('persistence v4: working days', () => {
   const base = { locations: DEFAULT_LOCATIONS, timeFormat: '12h' }
   const load = (workHours: unknown, version = 4) =>
-    parsePersistedBuddyState(JSON.stringify({ ...base, version, workHours }))?.workHours
+    parsePersistedState(JSON.stringify({ ...base, version, workHours }))?.workHours
   const memoryStorage = () => {
     const store = new Map<string, string>()
     return { store, storage: { setItem: (k: string, v: string) => void store.set(k, v) } }
@@ -271,7 +271,7 @@ describe('persistence v4: working days', () => {
   it('leaves older payloads alone: no days means Monday–Friday', () => {
     expect(load({ start: 8, end: 20 }, 3)).toEqual({ start: 8, end: 20 })
     expect(load({ start: 8, end: 20 }, 2)).toEqual({ start: 8, end: 20 })
-    expect(parsePersistedBuddyState(JSON.stringify({ ...base, version: 3 }))?.version).toBe(PERSIST_VERSION)
+    expect(parsePersistedState(JSON.stringify({ ...base, version: 3 }))?.version).toBe(PERSIST_VERSION)
   })
 
   it('keeps a custom week, sorted and without repeats', () => {
@@ -297,7 +297,7 @@ describe('persistence v4: working days', () => {
 
   it('round-trips a custom week through save and load', () => {
     const { store, storage } = memoryStorage()
-    savePersistedBuddyState(
+    savePersistedState(
       {
         locations: [...DEFAULT_LOCATIONS],
         timeFormat: '12h',
@@ -305,24 +305,75 @@ describe('persistence v4: working days', () => {
       },
       storage
     )
-    const saved = JSON.parse(store.get(WTB_STORAGE_KEY)!)
+    const saved = JSON.parse(store.get(HB_STORAGE_KEY)!)
     expect(saved.version).toBe(PERSIST_VERSION)
     expect(saved.workHours).toEqual({ start: 9, end: 17, days: [1, 2, 3, 6, 7] })
-    expect(parsePersistedBuddyState(store.get(WTB_STORAGE_KEY)!)?.workHours).toEqual(saved.workHours)
+    expect(parsePersistedState(store.get(HB_STORAGE_KEY)!)?.workHours).toEqual(saved.workHours)
   })
 
   it('does not write days for a default week', () => {
     const { store, storage } = memoryStorage()
-    savePersistedBuddyState(
+    savePersistedState(
       { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h', workHours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] } },
       storage
     )
-    expect(JSON.parse(store.get(WTB_STORAGE_KEY)!).workHours).toEqual({ start: 9, end: 17 })
+    expect(JSON.parse(store.get(HB_STORAGE_KEY)!).workHours).toEqual({ start: 9, end: 17 })
   })
 
   it('normalizeWorkHours does not change what it is given', () => {
     const input = { start: 9, end: 17, days: [7, 1] }
     expect(normalizeWorkHours(input)).toEqual({ start: 9, end: 17, days: [1, 7] })
     expect(input.days).toEqual([7, 1])
+  })
+})
+
+describe('persistence v5: holidays at home', () => {
+  const base = { locations: DEFAULT_LOCATIONS, timeFormat: '12h' }
+  const load = (workHours: unknown, version = 5) =>
+    parsePersistedState(JSON.stringify({ ...base, version, workHours }))?.workHours
+  const memoryStorage = () => {
+    const store = new Map<string, string>()
+    return { store, storage: { setItem: (k: string, v: string) => void store.set(k, v) } }
+  }
+
+  it('leaves older payloads alone: no holidaysOff means holidays are days off', () => {
+    expect(load({ start: 9, end: 17 }, 4)).toEqual({ start: 9, end: 17 })
+    expect(load({ start: 9, end: 17, days: [6, 7] }, 4)).toEqual({ start: 9, end: 17, days: [6, 7] })
+  })
+
+  it('keeps "I work through holidays" next to a custom week', () => {
+    expect(load({ start: 9, end: 17, holidaysOff: false })).toEqual({ start: 9, end: 17, holidaysOff: false })
+    expect(load({ start: 9, end: 17, days: [7, 1], holidaysOff: false })).toEqual({
+      start: 9,
+      end: 17,
+      days: [1, 7],
+      holidaysOff: false
+    })
+  })
+
+  it('stores the default (holidays are days off) exactly as it was stored before the setting existed', () => {
+    expect(load({ start: 9, end: 17, holidaysOff: true })).toEqual({ start: 9, end: 17 })
+  })
+
+  it.each([[0], ['no'], [null], [{}], [[]]])('reads a garbled holidaysOff %j as the default', (holidaysOff) => {
+    expect(load({ start: 10, end: 19, holidaysOff })).toEqual({ start: 10, end: 19 })
+  })
+
+  it('round-trips through save and load, and only writes it when it is false', () => {
+    const { store, storage } = memoryStorage()
+    const save = (holidaysOff: boolean) => {
+      savePersistedState(
+        { locations: [...DEFAULT_LOCATIONS], timeFormat: '12h', workHours: { start: 9, end: 17, holidaysOff } },
+        storage
+      )
+      return JSON.parse(store.get(HB_STORAGE_KEY)!).workHours
+    }
+    expect(save(true)).toEqual({ start: 9, end: 17 })
+    expect(save(false)).toEqual({ start: 9, end: 17, holidaysOff: false })
+    expect(parsePersistedState(store.get(HB_STORAGE_KEY)!)?.workHours).toEqual({
+      start: 9,
+      end: 17,
+      holidaysOff: false
+    })
   })
 })

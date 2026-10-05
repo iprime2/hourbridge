@@ -50,7 +50,7 @@ export function fileSlug(text: string, fallback = 'meeting'): string {
 /** "⌘" on Apple platforms, "Ctrl+" elsewhere — for shortcut hints. */
 export function modKeyLabel(): string {
   const platform =
-    (typeof window !== 'undefined' && window.worldTimeBuddy?.platform) ||
+    (typeof window !== 'undefined' && window.hourbridge?.platform) ||
     (typeof navigator !== 'undefined' ? navigator.platform : '')
   return /mac|darwin|iphone|ipad/i.test(platform) ? '⌘' : 'Ctrl+'
 }

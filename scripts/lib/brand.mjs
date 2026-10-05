@@ -1,5 +1,5 @@
 /**
- * Dependency-free renderer for the World Time Buddy mark (clock over a timeline).
+ * Dependency-free renderer for the Hourbridge mark (clock over a timeline).
  * Shapes are evaluated as signed-distance fields, which gives smooth anti-aliased edges at any
  * size — 44px Store tiles and 2732px splash screens come from the same definition.
  *

@@ -5,13 +5,16 @@ import Logo from '@ui/Logo'
 import type { CityOption } from '@core/cityOptions'
 import type { ThemePreference } from '@core/persistence'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
-import type { CalendarDate } from '@core/useTimeBuddyState'
+import type { Location } from '@core/timezones'
+import type { CalendarDate } from '@core/useHourbridgeState'
 
 interface ToolbarProps {
   selectedDate: CalendarDate
   homeZone: string
   /** Display name of the home city (for the working-hours setting). */
   homeLabel?: string
+  /** The cities on screen (the settings list the holiday data coverage of their countries). */
+  locations?: readonly Location[]
   timeFormat: TimeFormat
   theme: ThemePreference
   workHours: WorkHours
@@ -51,6 +54,7 @@ export default function Toolbar({
   selectedDate,
   homeZone,
   homeLabel,
+  locations,
   timeFormat,
   theme,
   workHours,
@@ -76,21 +80,21 @@ export default function Toolbar({
 
   // The widget is a second Electron window. In a plain browser there is nothing to open, so the
   // button only exists when the desktop bridge (or an explicit handler) is available.
-  const canOpenWidget = Boolean(onOpenWidget) || typeof window.wtb?.openWidget === 'function'
+  const canOpenWidget = Boolean(onOpenWidget) || typeof window.hb?.openWidget === 'function'
 
   const handleOpenWidget = (): void => {
     if (onOpenWidget) {
       onOpenWidget()
       return
     }
-    void window.wtb?.openWidget?.()
+    void window.hb?.openWidget?.()
   }
 
   return (
     <header className="toolbar">
       <div className="toolbar-brand">
         <Logo size={28} />
-        <h1 className="toolbar-title">World Time Buddy</h1>
+        <h1 className="toolbar-title">Hourbridge</h1>
       </div>
 
       <div className="date-strip" role="group" aria-label="Comparison date">
@@ -180,6 +184,7 @@ export default function Toolbar({
           timeFormat={timeFormat}
           workHours={workHours}
           homeLabel={homeLabel}
+          locations={locations}
           onTheme={onTheme}
           onTimeFormat={onTimeFormat}
           onWorkHours={onWorkHours}
