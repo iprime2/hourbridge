@@ -4,14 +4,16 @@ import CityPicker from '@ui/CityPicker'
 import Logo from '@ui/Logo'
 import PlannerBar from '@ui/PlannerBar'
 import SettingsPanel from '@ui/SettingsPanel'
+import SharedCitiesPrompt from '@ui/SharedCitiesPrompt'
 import UpcomingHolidays from '@ui/UpcomingHolidays'
 import MobileGrid from '@mobile/MobileGrid'
 import Sheet from '@mobile/Sheet'
-import { hapticSelection, shareMeeting, syncStatusBar } from '@mobile/native'
+import { hapticSelection, isNative, shareMeeting, shareTextFile, syncStatusBar } from '@mobile/native'
 import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
+import { useSharedLink } from '@core/useSharedLink'
 import { useHourbridgeState, type CalendarDate } from '@core/useHourbridgeState'
 
 type SheetState = { kind: 'add' } | { kind: 'settings' } | { kind: 'city'; id: string } | null
@@ -22,6 +24,7 @@ function dayLabel(date: CalendarDate, zone: string): string {
 
 export default function MobileApp() {
   const state = useHourbridgeState()
+  const shared = useSharedLink()
   const now = useNow('minute')
   useTheme(state.theme)
 
@@ -142,6 +145,20 @@ export default function MobileApp() {
         </button>
       </div>
 
+      <SharedCitiesPrompt
+        link={shared.link}
+        current={state.locations}
+        onAdd={(cities) => {
+          state.applySharedCities(cities, 'add')
+          shared.dismiss()
+        }}
+        onReplace={(cities) => {
+          state.applySharedCities(cities, 'replace')
+          shared.dismiss()
+        }}
+        onDismiss={shared.dismiss}
+      />
+
       <main className="m-main">
         <MobileGrid
           locations={state.locations}
@@ -172,6 +189,7 @@ export default function MobileApp() {
           onSelectRange={state.selectRange}
           onResize={state.resizeSelection}
           onStartMinute={state.setMeetingStart}
+          calendarLinks={!isNative()}
           onClear={() => state.selectHour(null)}
           onShare={(text, ics, filename) => void onShare(text, ics, filename)}
         />
@@ -209,6 +227,8 @@ export default function MobileApp() {
             workHours={state.workHours}
             homeLabel={state.home.label}
             locations={state.locations}
+            onImportSettings={state.importSettings}
+            onExportFile={isNative() ? (name, text) => shareTextFile(name, text, 'Hourbridge settings') : undefined}
             onTheme={state.setTheme}
             onTimeFormat={state.setTimeFormat}
             onWorkHours={state.setWorkHours}

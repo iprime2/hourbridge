@@ -1,0 +1,26 @@
+/* "Cities were shared with you" banner — shared by desktop and iOS. Imported by SharedCitiesPrompt.tsx. */
+
+.shared-prompt {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.shared-text {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.shared-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

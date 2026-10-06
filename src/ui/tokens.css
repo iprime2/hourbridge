@@ -450,6 +450,38 @@ select {
   accent-color: var(--accent);
 }
 
+/* —— Settings: actions row, the import preview, and a one-line result —— */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-pending {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: 0.85rem;
+}
+
+.settings-pending p {
+  margin: 0;
+}
+
+.settings-notice {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.settings-notice.is-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .kbd {
   display: inline-block;
   min-width: 1.4em;

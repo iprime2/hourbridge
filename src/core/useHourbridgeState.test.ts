@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DateTime } from 'luxon'
 import { useHourbridgeState } from '@core/useHourbridgeState'
 import { HB_STORAGE_KEY } from '@core/persistence'
@@ -385,5 +385,105 @@ describe('useHourbridgeState — reorderLocation', () => {
       result.current.moveLocation(initial[0], 1)
     })
     expect(ids(result).indexOf(initial[0])).toBe(2)
+  })
+})
+
+describe('bringing settings in: importSettings and applySharedCities', () => {
+  beforeEach(() => {
+    localStorage.removeItem(HB_STORAGE_KEY)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    // 22:00 UTC on 6 October: already the 7th in Kolkata, still the 6th in Los Angeles.
+    vi.setSystemTime(new Date('2026-10-06T22:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const imported = {
+    version: 5,
+    locations: [
+      { id: 'la', label: 'LA', iana: 'America/Los_Angeles', isHome: true },
+      { id: 'paris', label: 'Paris', iana: 'Europe/Paris' }
+    ],
+    timeFormat: '24h' as const,
+    theme: 'dark' as const,
+    workHours: { start: 8, end: 20, days: [1, 2, 3, 4], holidaysOff: false }
+  }
+
+  it('importSettings replaces the cities and every setting', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.importSettings(imported))
+    expect(result.current.locations.map((l) => l.label)).toEqual(['LA', 'Paris'])
+    expect(result.current.home.label).toBe('LA')
+    expect(result.current.timeFormat).toBe('24h')
+    expect(result.current.theme).toBe('dark')
+    expect(result.current.workHours).toEqual(imported.workHours)
+  })
+
+  it('importSettings shows today in the new home zone and drops a meeting from the old layout', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    expect(result.current.selectedDate).toEqual({ year: 2026, month: 10, day: 7 }) // IST
+    act(() => result.current.selectHour(9))
+    act(() => result.current.importSettings(imported))
+    expect(result.current.selectedDate).toEqual({ year: 2026, month: 10, day: 6 }) // Los Angeles
+    expect(result.current.meeting).toBeNull()
+    expect(result.current.selection).toBeNull()
+  })
+
+  it('importSettings is saved like any other change', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.importSettings(imported))
+    const stored = JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!)
+    expect(stored).toMatchObject({ timeFormat: '24h', theme: 'dark', workHours: imported.workHours })
+    expect(stored.locations.map((l: { label: string }) => l.label)).toEqual(['LA', 'Paris'])
+  })
+
+  it('applySharedCities("add") appends only the zones you lack and keeps your home', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() =>
+      result.current.applySharedCities(
+        [
+          { label: 'Delhi', iana: 'Asia/Kolkata', isHome: true }, // you have that zone
+          { label: 'Paris', iana: 'Europe/Paris' },
+          { label: 'Lima', iana: 'America/Lima' }
+        ],
+        'add'
+      )
+    )
+    expect(result.current.locations.map((l) => l.label)).toEqual(['Miami', 'IST', 'AEST', 'London', 'Tokyo', 'Paris', 'Lima'])
+    expect(result.current.home.id).toBe('ist')
+    expect(new Set(result.current.locations.map((l) => l.id)).size).toBe(7)
+  })
+
+  it('applySharedCities("add") with nothing new changes nothing, not even the array', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    const before = result.current.locations
+    act(() => result.current.applySharedCities([{ label: 'Delhi', iana: 'Asia/Kolkata' }], 'add'))
+    expect(result.current.locations).toBe(before)
+  })
+
+  it('applySharedCities("replace") swaps the cities, takes the home from the link and keeps other settings', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.setTimeFormat('24h'))
+    act(() => result.current.selectHour(9))
+    act(() =>
+      result.current.applySharedCities(
+        [
+          { label: 'Paris', iana: 'Europe/Paris' },
+          { label: 'LA', iana: 'America/Los_Angeles', isHome: true }
+        ],
+        'replace'
+      )
+    )
+    expect(result.current.locations.map((l) => l.label)).toEqual(['Paris', 'LA'])
+    expect(result.current.home.label).toBe('LA')
+    expect(result.current.timeFormat).toBe('24h')
+    expect(result.current.selectedDate).toEqual({ year: 2026, month: 10, day: 6 })
+    expect(result.current.meeting).toBeNull()
+  })
+
+  it('applySharedCities("replace") with nothing usable leaves everything as it was', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    const before = result.current.locations
+    act(() => result.current.applySharedCities([], 'replace'))
+    expect(result.current.locations).toBe(before)
   })
 })

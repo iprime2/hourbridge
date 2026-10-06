@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event'
 vi.mock('@mobile/native', () => ({
   hapticSelection: vi.fn(),
   shareMeeting: vi.fn(async () => ''),
+  shareTextFile: vi.fn(async () => undefined),
   syncStatusBar: vi.fn(),
   restoreStateFromNative: vi.fn(async () => undefined),
   mirrorStateToNative: vi.fn(() => () => undefined),
@@ -17,6 +18,7 @@ vi.mock('@mobile/native', () => ({
 import MobileApp from '@mobile/MobileApp'
 import * as native from '@mobile/native'
 import { setHolidayLoader } from '@core/holidays'
+import { encodeShare } from '@core/shareLink'
 import { HB_STORAGE_KEY } from '@core/persistence'
 
 const row = (name: RegExp) => screen.getByLabelText(name)
@@ -272,6 +274,62 @@ describe('MobileApp (iOS) on a public holiday at home', () => {
     await waitFor(() => expect(home().querySelectorAll('.m-tile.is-work')).toHaveLength(0))
     expect(home().querySelectorAll('.m-tile.has-holiday')).toHaveLength(24)
     expect(tile(/^IST timezone row$/, 12)).toHaveAccessibleName(/Public holiday: Republic Day/)
+  })
+})
+
+describe('MobileApp (iOS) — links in and out', () => {
+  beforeEach(() => {
+    localStorage.removeItem(HB_STORAGE_KEY)
+    window.history.replaceState(null, '', '/')
+  })
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+    vi.mocked(native.isNative).mockReturnValue(false)
+  })
+
+  it('offers Google Calendar and Outlook links on the web, with a meeting chosen', async () => {
+    const user = userEvent.setup()
+    render(<MobileApp />)
+    expect(screen.queryByRole('link', { name: /Add to Google Calendar/ })).toBeNull() // no meeting yet
+    await user.click(tile(/IST timezone row/i, 10))
+    expect(screen.getByRole('link', { name: /Add to Google Calendar/ })).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('link', { name: /Add to Outlook/ })).toBeInTheDocument()
+  })
+
+  it('leaves them out inside the native app, whose share sheet reaches the calendars', async () => {
+    vi.mocked(native.isNative).mockReturnValue(true)
+    const user = userEvent.setup()
+    render(<MobileApp />)
+    await user.click(tile(/IST timezone row/i, 10))
+    expect(screen.queryByRole('link', { name: /Add to/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+  })
+
+  it('asks before using cities from a shared link, and adds the new ones when told to', async () => {
+    const user = userEvent.setup()
+    window.history.replaceState(null, '', `/#share=${encodeShare([{ id: 'p', label: 'Paris', iana: 'Europe/Paris' }])}`)
+    render(<MobileApp />)
+    expect(screen.getByRole('region', { name: 'Shared cities' })).toHaveTextContent('1 city was shared with you: Paris.')
+    expect(rowLabels()).not.toContain('Paris timezone row')
+    await user.click(screen.getByRole('button', { name: 'Add 1 new city' }))
+    expect(rowLabels()).toContain('Paris timezone row')
+    expect(screen.queryByRole('region', { name: 'Shared cities' })).toBeNull()
+    expect(window.location.hash).toBe('')
+  })
+
+  it('lists Export and Import in Settings, and hands the file to the share sheet only when native', async () => {
+    const user = userEvent.setup()
+    vi.mocked(native.isNative).mockReturnValue(true)
+    vi.mocked(native.shareTextFile).mockClear()
+    render(<MobileApp />)
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+    await user.click(screen.getByRole('button', { name: 'Export settings' }))
+    expect(native.shareTextFile).toHaveBeenCalledTimes(1)
+    const [name, text, title] = vi.mocked(native.shareTextFile).mock.calls[0]
+    expect(name).toMatch(/^hourbridge-settings-.*\.json$/)
+    expect(JSON.parse(text).kind).toBe('hourbridge-settings')
+    expect(title).toBe('Hourbridge settings')
+    expect(screen.queryByRole('button', { name: 'Copy share link' })).toBeInTheDocument() // jsdom is on http
   })
 })
 

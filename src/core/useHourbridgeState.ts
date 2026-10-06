@@ -4,6 +4,7 @@ import type { CityOption } from '@core/cityOptions'
 import {
   loadResolvedState,
   savePersistedState,
+  type ResolvedState,
   type ThemePreference
 } from '@core/persistence'
 import {
@@ -18,6 +19,7 @@ import {
 } from '@core/meeting'
 import { normalizeRange } from '@core/planner'
 import { moveItem } from '@core/reorder'
+import { mergeShared, replaceWithShared, type SharedLocation } from '@core/shareLink'
 import { useHolidayLookup } from '@core/useHolidays'
 import { getHomeLocation, type Location } from '@core/timezones'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
@@ -128,6 +130,33 @@ export function useHourbridgeState() {
         .sort((a, b) => a.offset - b.offset || a.index - b.index)
         .map((r) => r.l)
     )
+  }, [])
+
+  /* —— bringing settings in from outside (both inputs were validated by their parsers) —— */
+
+  /** Replace the cities and every setting with those of an imported settings file. */
+  const importSettings = useCallback((next: ResolvedState) => {
+    setLocations(next.locations)
+    setTimeFormat(next.timeFormat)
+    setTheme(next.theme)
+    setWorkHours(next.workHours)
+    setSelectedDate(todayInZone(getHomeLocation(next.locations).iana))
+    anchor.current = null
+    setMeeting(null)
+  }, [])
+
+  /** Open a shared list of cities instead of yours (`replace`) or after them (`add`). Only cities change. */
+  const applySharedCities = useCallback((shared: readonly SharedLocation[], mode: 'replace' | 'add') => {
+    if (mode === 'add') {
+      setLocations((prev) => mergeShared(prev, shared))
+      return
+    }
+    const next = replaceWithShared(shared)
+    if (!next) return
+    setLocations(next)
+    setSelectedDate(todayInZone(getHomeLocation(next).iana))
+    anchor.current = null
+    setMeeting(null)
   }, [])
 
   /* —— date —— */
@@ -253,6 +282,8 @@ export function useHourbridgeState() {
     setTimeFormat,
     setTheme,
     setWorkHours,
+    importSettings,
+    applySharedCities,
     selectHour,
     selectRange,
     extendSelection,
