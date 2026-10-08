@@ -10,3 +10,8 @@ id = "GHSA-ch52-4w7c-c8xp"
 # Expires so it gets looked at again rather than hiding a regression forever.
 ignoreUntil = 2027-01-03
 reason = "http-cache-semantics <= 4.2.0 has no patched release. Dev-only transitive dependency of electron-builder (via @electron/get > got > cacheable-request), used as a client-side cache while downloading build tooling; not the shared/server cache the advisory concerns, and not shipped in any app. Remove when a fixed release exists."
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+ignoreUntil = 2027-01-08
+reason = "sprintf-js <= 1.1.3 (unbounded precision specifiers, denial of service) has no patched release; 1.1.3 is the latest. Dev-only transitive dependency of electron-builder (via @electron/get > global-agent > roarr), used while downloading build tooling, where roarr formats global-agent's log messages (fixed strings in its source, not user or network input); not shipped in any app. Remove when a fixed release exists."
