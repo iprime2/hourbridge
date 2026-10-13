@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Toolbar from '@renderer/components/Toolbar'
 import TimeGrid from '@renderer/components/TimeGrid'
 import PlannerBar from '@ui/PlannerBar'
+import SharedCitiesPrompt from '@ui/SharedCitiesPrompt'
 import UpcomingHolidays from '@ui/UpcomingHolidays'
 import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { isEditableTarget } from '@ui/browser'
@@ -9,11 +10,13 @@ import { buildTimelineForLocations } from '@core/formatters'
 import { summarizePlanner } from '@core/planner'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
+import { useSharedLink } from '@core/useSharedLink'
 import { useHourbridgeState } from '@core/useHourbridgeState'
 
 export default function App() {
   const state = useHourbridgeState()
   const now = useNow('minute')
+  const shared = useSharedLink()
   useTheme(state.theme)
 
   const [addOpen, setAddOpen] = useState(false)
@@ -86,6 +89,7 @@ export default function App() {
         homeZone={homeZone}
         homeLabel={state.home.label}
         locations={state.locations}
+        onImportSettings={state.importSettings}
         timeFormat={state.timeFormat}
         theme={state.theme}
         workHours={state.workHours}
@@ -106,6 +110,20 @@ export default function App() {
         onSortByOffset={state.sortByOffset}
         onAddLocation={state.addLocation}
         onOpenWidget={window.hb?.openWidget ? () => void window.hb?.openWidget() : undefined}
+      />
+
+      <SharedCitiesPrompt
+        link={shared.link}
+        current={state.locations}
+        onAdd={(cities) => {
+          state.applySharedCities(cities, 'add')
+          shared.dismiss()
+        }}
+        onReplace={(cities) => {
+          state.applySharedCities(cities, 'replace')
+          shared.dismiss()
+        }}
+        onDismiss={shared.dismiss}
       />
 
       <main className="app-main">

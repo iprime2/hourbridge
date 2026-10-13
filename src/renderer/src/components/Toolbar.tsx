@@ -3,7 +3,7 @@ import AddLocation from '@renderer/components/AddLocation'
 import SettingsMenu from '@renderer/components/SettingsMenu'
 import Logo from '@ui/Logo'
 import type { CityOption } from '@core/cityOptions'
-import type { ThemePreference } from '@core/persistence'
+import type { ResolvedState, ThemePreference } from '@core/persistence'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
 import type { CalendarDate } from '@core/useHourbridgeState'
@@ -15,6 +15,8 @@ interface ToolbarProps {
   homeLabel?: string
   /** The cities on screen (the settings list the holiday data coverage of their countries). */
   locations?: readonly Location[]
+  /** Apply an imported settings file (the settings list a "Your data" section when this is given). */
+  onImportSettings?: (settings: ResolvedState) => void
   timeFormat: TimeFormat
   theme: ThemePreference
   workHours: WorkHours
@@ -55,6 +57,7 @@ export default function Toolbar({
   homeZone,
   homeLabel,
   locations,
+  onImportSettings,
   timeFormat,
   theme,
   workHours,
@@ -185,6 +188,7 @@ export default function Toolbar({
           workHours={workHours}
           homeLabel={homeLabel}
           locations={locations}
+          onImportSettings={onImportSettings}
           onTheme={onTheme}
           onTimeFormat={onTimeFormat}
           onWorkHours={onWorkHours}

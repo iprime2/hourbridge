@@ -90,6 +90,21 @@ export async function shareMeeting(text: string, ics: string, filename: string):
   }
 }
 
+/**
+ * Hand a small text file to the iOS share sheet (Save to Files, AirDrop, Mail…). Browsers download
+ * such a file instead; only the native app needs this. Cancelling the sheet is not an error.
+ */
+export async function shareTextFile(filename: string, text: string, title: string): Promise<void> {
+  if (!isNative()) return
+  try {
+    await Filesystem.writeFile({ path: filename, data: text, directory: Directory.Cache, encoding: Encoding.UTF8 })
+    const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache })
+    await Share.share({ title, url: uri, dialogTitle: title })
+  } catch {
+    // A dismissed or failed share sheet leaves nothing to clean up or report.
+  }
+}
+
 async function shareOnWeb(text: string, ics: string, filename: string): Promise<string> {
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {

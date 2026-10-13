@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import SettingsPanel from '@ui/SettingsPanel'
-import type { ThemePreference } from '@core/persistence'
+import type { ResolvedState, ThemePreference } from '@core/persistence'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
 
@@ -14,6 +14,7 @@ interface SettingsMenuProps {
   onSortByOffset: () => void
   homeLabel?: string
   locations?: readonly Location[]
+  onImportSettings?: (settings: ResolvedState) => void
 }
 
 export default function SettingsMenu(props: SettingsMenuProps) {
@@ -66,6 +67,7 @@ export default function SettingsMenu(props: SettingsMenuProps) {
             workHours={props.workHours}
             homeLabel={props.homeLabel}
             locations={props.locations}
+            onImportSettings={props.onImportSettings}
             onTheme={props.onTheme}
             onTimeFormat={props.onTimeFormat}
             onWorkHours={props.onWorkHours}

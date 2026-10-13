@@ -18,6 +18,7 @@ import {
   type HourRange,
   type PlannerSummary
 } from '@core/planner'
+import { googleCalendarUrl, outlookCalendarUrl } from '@core/calendarLinks'
 import { buildIcs, buildInviteText, formatSlot, type MeetingPlan } from '@core/share'
 import {
   DEFAULT_WORK_HOURS,
@@ -52,6 +53,11 @@ interface PlannerBarProps {
   onShare?: (text: string, ics: string, filename: string) => void
   /** Empty-state instruction; the default describes mouse and keyboard use. */
   hint?: string
+  /**
+   * Offer "Google Calendar" and "Outlook" links (they open that calendar's own page with the meeting
+   * filled in). Left off in the iOS app, whose share sheet already reaches the calendars.
+   */
+  calendarLinks?: boolean
 }
 
 const DESKTOP_HINT =
@@ -104,7 +110,8 @@ export default function PlannerBar({
   onStartMinute,
   onClear,
   onShare,
-  hint = DESKTOP_HINT
+  hint = DESKTOP_HINT,
+  calendarLinks = true
 }: PlannerBarProps) {
   const [status, setStatus] = useState('')
   const statusTimer = useRef<number>(0)
@@ -242,6 +249,28 @@ export default function PlannerBar({
                   </button>
                 </>
               )}
+              {calendarLinks ? (
+                <>
+                  <a
+                    className="btn"
+                    href={googleCalendarUrl(plan, { title: meetingTitle, details: inviteText })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Add to Google Calendar (opens in a new tab)"
+                  >
+                    Google Calendar
+                  </a>
+                  <a
+                    className="btn"
+                    href={outlookCalendarUrl(plan, { title: meetingTitle, details: inviteText })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Add to Outlook (opens in a new tab)"
+                  >
+                    Outlook
+                  </a>
+                </>
+              ) : null}
               <button type="button" className="btn btn-ghost" onClick={onClear}>
                 Clear
               </button>
