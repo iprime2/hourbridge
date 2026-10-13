@@ -35,7 +35,7 @@ Before pushing: `npm test && npm run lint && npm run build && npm run build:mobi
 
 ## Git, PRs and releases
 
-- **Never merge a PR unless the user explicitly says to.** Merging to `main` triggers an automatic version bump and GitHub release. `bump:minor` / `bump:major` in the merge message changes the bump; the default is a patch.
+- **Never merge a PR unless the user explicitly says to.** Releases are **paused** (the desktop apps are not in use): `.github/workflows/release.yml` only runs when started by hand, so merging to `main` does not bump the version, tag, package or publish; the web app is deployed from `main` by Vercel, not by that workflow. To resume, restore the push triggers noted at the top of the file; the `bump:minor` / `bump:major` merge-message rule in the README then applies again.
 - Commit as `Sushil Gupta <kalwarsushil2@gmail.com>`, set per command: `git -c user.name="Sushil Gupta" -c user.email="kalwarsushil2@gmail.com" commit …`. Never change git config.
 - Commit messages end with the `Co-Authored-By:` trailer for the model in use; PR bodies end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Conventional-style subjects (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`), small logical commits, tests with every behaviour change. Watch CI after pushing: `gh pr checks <n> --watch`.
