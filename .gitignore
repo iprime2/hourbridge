@@ -48,3 +48,4 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+graphify-out/
