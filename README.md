@@ -283,7 +283,7 @@ Output: `release/Hourbridge-<version>-win-store.appx`.
 
 **Security** (`security.yml`): build & test, Google **OSV Scanner** on `package-lock.json` (fails on known-vulnerable deps; documented exceptions in `osv-scanner.toml`), and a **Trivy** filesystem scan (fails on CRITICAL, uploads HIGH+CRITICAL SARIF).
 
-**Releases** (`release.yml`): merging to `main` auto-bumps the semver, tags, tests, packages Windows and macOS, and publishes a GitHub Release.
+**Releases** (`release.yml`) — **paused** while the desktop apps are not in use: the workflow only runs when started by hand, so merging to `main` does not bump the version, tag, package or publish (the web app is deployed by Vercel). To resume, restore the push triggers noted at the top of the file. When active, merging to `main` auto-bumps the semver, tags, tests, packages Windows and macOS, and publishes a GitHub Release:
 
 | Commit / merge message contains | Bump |
 | --- | --- |

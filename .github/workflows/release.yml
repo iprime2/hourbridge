@@ -1,11 +1,19 @@
 name: Release
 
+# PAUSED: releases are off while the desktop apps are not in use. Nothing runs on a push to main
+# or on a tag, so merging no longer bumps the version, tags, packages or publishes. To resume,
+# replace the `on:` block below with the triggers that were here:
+#
+#   on:
+#     push:
+#       branches:
+#         - main
+#       tags:
+#         - "v*"
+#
+# The jobs below are unchanged and still expect those push events.
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
