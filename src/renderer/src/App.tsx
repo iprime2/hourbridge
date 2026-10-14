@@ -7,7 +7,9 @@ import UpcomingHolidays from '@ui/UpcomingHolidays'
 import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { isEditableTarget } from '@ui/browser'
 import { buildTimelineForLocations } from '@core/formatters'
+import { meetingFromRange } from '@core/meeting'
 import { summarizePlanner } from '@core/planner'
+import { isShareableProtocol } from '@core/shareLink'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
 import { useSharedLink } from '@core/useSharedLink'
@@ -31,6 +33,10 @@ export default function App() {
   const summary = useMemo(
     () => summarizePlanner(columns, state.locations, state.workHours),
     [columns, state.locations, state.workHours]
+  )
+  /** This page's address, when other people could open it (the web app): links are built on it. */
+  const [shareBase] = useState(() =>
+    isShareableProtocol(window.location.protocol) ? window.location.href.replace(/#.*$/, '') : undefined
   )
 
   const excludeIds = state.existingIds
@@ -124,6 +130,17 @@ export default function App() {
           shared.dismiss()
         }}
         onDismiss={shared.dismiss}
+        meetingTarget={{
+          homeZone,
+          homeLabel: state.home.label,
+          timeFormat: state.timeFormat,
+          onOpen: (cities, placed, meetingTitle) => {
+            state.applySharedCities(cities, 'add')
+            state.openMeeting(placed.date, placed.meeting)
+            setTitle(meetingTitle ?? '')
+            shared.dismiss()
+          }
+        }}
       />
 
       <main className="app-main">
@@ -165,6 +182,13 @@ export default function App() {
         onResize={state.resizeSelection}
         onStartMinute={state.setMeetingStart}
         onClear={() => state.selectHour(null)}
+        shareBase={shareBase}
+        upcoming={{
+          from: state.selectedDate,
+          holidays: state.holidays,
+          now,
+          onPick: (date, range) => state.openMeeting(date, meetingFromRange(range))
+        }}
       />
 
       <UpcomingHolidays locations={state.locations} from={state.selectedDate} now={now} />

@@ -15,8 +15,11 @@
 
 .shared-text {
   flex: 1 1 18rem;
+  min-width: 0;
   margin: 0;
   font-size: 0.9rem;
+  /* A long city name or meeting title with no spaces must wrap, not widen the page. */
+  overflow-wrap: anywhere;
 }
 
 .shared-actions {

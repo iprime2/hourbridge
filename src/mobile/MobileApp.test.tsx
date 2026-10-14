@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { DateTime } from 'luxon'
 
 // The adapter is the only module that touches Capacitor; replace it wholesale.
 vi.mock('@mobile/native', () => ({
@@ -315,6 +316,60 @@ describe('MobileApp (iOS) — links in and out', () => {
     expect(rowLabels()).toContain('Paris timezone row')
     expect(screen.queryByRole('region', { name: 'Shared cities' })).toBeNull()
     expect(window.location.hash).toBe('')
+  })
+
+  it('opens a shared meeting in your own time, with its title, on its day', async () => {
+    const user = userEvent.setup()
+    const start = DateTime.fromISO('2024-01-15T04:00:00Z', { zone: 'utc' })
+    window.history.replaceState(null, '', `/#share=${encodeShare([{ id: 'p', label: 'Paris', iana: 'Europe/Paris' }], { start, minutes: 30, title: 'Sync' })}`)
+    render(<MobileApp />)
+    expect(screen.getByRole('region', { name: 'Shared meeting' })).toHaveTextContent('“Sync” was shared with you: Mon, Jan 15 · 9:30 AM – 10:00 AM IST')
+    await user.click(screen.getByRole('button', { name: 'Open in planner' }))
+    expect(screen.getByRole('textbox', { name: 'Meeting title' })).toHaveValue('Sync')
+    expect(screen.getByRole('region', { name: 'Meeting planner' })).toHaveTextContent('Mon, Jan 15 · 9:30 AM – 10:00 AM IST')
+    expect(rowLabels()).toContain('Paris timezone row')
+    expect(window.location.hash).toBe('')
+  })
+
+  it('offers Copy link for a meeting on the web, and not inside the native app', async () => {
+    const user = userEvent.setup()
+    render(<MobileApp />)
+    await user.click(tile(/IST timezone row/i, 10))
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
+    cleanup()
+    vi.mocked(native.isNative).mockReturnValue(true)
+    render(<MobileApp />)
+    await user.click(tile(/IST timezone row/i, 10))
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull()
+  })
+
+  it('offers the next days’ good times in the planner, and opens one with a tap', async () => {
+    // Monday 15 January 2024, 11:30 AM IST, with IST at home and London: 12–6 PM IST works.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2024-01-15T06:00:00Z'))
+    try {
+      localStorage.setItem(
+        HB_STORAGE_KEY,
+        JSON.stringify({
+          version: 5,
+          locations: [
+            { id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true },
+            { id: 'london', label: 'London', iana: 'Europe/London' }
+          ],
+          timeFormat: '12h',
+          theme: 'system',
+          workHours: { start: 9, end: 17 }
+        })
+      )
+      const user = userEvent.setup()
+      render(<MobileApp />)
+      await user.click(screen.getByRole('button', { name: 'Wed, Jan 17 · 12:00 PM – 6:00 PM IST' }))
+      expect(native.hapticSelection).toHaveBeenCalled()
+      expect(screen.getByRole('region', { name: 'Meeting planner' })).toHaveTextContent('Wed, Jan 17 · 12:00 PM – 6:00 PM IST')
+      expect(screen.getByRole('group', { name: 'Comparison date' })).toHaveTextContent('Wed, Jan 17')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('lists Export and Import in Settings, and hands the file to the share sheet only when native', async () => {

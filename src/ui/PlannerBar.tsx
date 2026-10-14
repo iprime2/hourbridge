@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import '@ui/planner.css'
 import { copyText, downloadTextFile, fileSlug } from '@ui/browser'
 import { HolidayIcon } from '@ui/icons'
+import UpcomingSlots, { type UpcomingSlotsProps } from '@ui/UpcomingSlots'
 import {
   describeDuration,
   formatDuration,
@@ -19,6 +20,7 @@ import {
   type PlannerSummary
 } from '@core/planner'
 import { googleCalendarUrl, outlookCalendarUrl } from '@core/calendarLinks'
+import { buildShareUrl, meetingForLink } from '@core/shareLink'
 import { buildIcs, buildInviteText, formatSlot, type MeetingPlan } from '@core/share'
 import {
   DEFAULT_WORK_HOURS,
@@ -58,6 +60,14 @@ interface PlannerBarProps {
    * filled in). Left off in the iOS app, whose share sheet already reaches the calendars.
    */
   calendarLinks?: boolean
+  /**
+   * The page address, without its fragment, when it is one other people can open (the web app).
+   * With it the planner offers "Copy link": a link to this meeting and these cities that opens in
+   * the other person's own timezone. The desktop and iOS apps have no such address and leave it out.
+   */
+  shareBase?: string
+  /** Search the days after the one shown for good times (left out, only the day is planned). */
+  upcoming?: Pick<UpcomingSlotsProps, 'from' | 'holidays' | 'now' | 'onPick'>
 }
 
 const DESKTOP_HINT =
@@ -111,7 +121,9 @@ export default function PlannerBar({
   onClear,
   onShare,
   hint = DESKTOP_HINT,
-  calendarLinks = true
+  calendarLinks = true,
+  shareBase,
+  upcoming
 }: PlannerBarProps) {
   const [status, setStatus] = useState('')
   const statusTimer = useRef<number>(0)
@@ -161,6 +173,15 @@ export default function PlannerBar({
 
   async function onCopy(): Promise<void> {
     flash((await copyText(inviteText)) ? 'Copied to clipboard' : 'Could not copy')
+  }
+
+  // A meeting that cannot travel in a link (one stretched by a clock change, say) gets no button.
+  const linkMeeting = plan && shareBase ? meetingForLink(plan, title) : null
+
+  async function onCopyLink(): Promise<void> {
+    if (!shareBase || !linkMeeting) return
+    const url = buildShareUrl(shareBase, locations, linkMeeting)
+    flash((await copyText(url)) ? 'Link copied: it opens this meeting in each person’s own time' : 'Could not copy')
   }
 
   const asleepNames = perLocation.filter((p) => p.phase === 'night').map((p) => p.location.label)
@@ -225,18 +246,30 @@ export default function PlannerBar({
             </div>
             <div className="planner-actions">
               {onShare ? (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => onShare(inviteText, icsText, icsName)}
-                >
-                  Share
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => onShare(inviteText, icsText, icsName)}
+                  >
+                    Share
+                  </button>
+                  {linkMeeting ? (
+                    <button type="button" className="btn" onClick={() => void onCopyLink()}>
+                      Copy link
+                    </button>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <button type="button" className="btn btn-primary" onClick={() => void onCopy()}>
                     Copy details
                   </button>
+                  {linkMeeting ? (
+                    <button type="button" className="btn" onClick={() => void onCopyLink()}>
+                      Copy link
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="btn"
@@ -350,6 +383,16 @@ export default function PlannerBar({
                 {windowLabel(bestRange, timeFormat, homeLabel)}
               </button>
             </div>
+          ) : null}
+          {upcoming ? (
+            <UpcomingSlots
+              {...upcoming}
+              locations={locations}
+              homeZone={homeZone}
+              homeLabel={homeLabel}
+              timeFormat={timeFormat}
+              workHours={workHours}
+            />
           ) : null}
         </div>
       )}

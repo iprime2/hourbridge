@@ -135,6 +135,18 @@
   font-weight: 650;
 }
 
+/* "Next 7 days" row: the planner's best times for the days after the one shown. */
+.planner-days {
+  min-height: 28px;
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.planner-upcoming-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 .btn.chip:hover {
   background: var(--accent-soft);
   filter: brightness(0.96);
