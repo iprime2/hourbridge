@@ -229,6 +229,16 @@ export function useHourbridgeState() {
     })
   }, [])
 
+  /**
+   * Show `date` with `next` selected: a slot picked from the days ahead, or a meeting opened from a
+   * share link (already placed on your home calendar by `placeMeeting`).
+   */
+  const openMeeting = useCallback((date: CalendarDate, next: Meeting) => {
+    setSelectedDate({ year: date.year, month: date.month, day: date.day })
+    anchor.current = meetingColumns(next).start
+    setMeeting(next)
+  }, [])
+
   /** Start at :00, :15, :30 or :45 of the hour the meeting starts in. */
   const setMeetingStart = useCallback((minuteOfHour: number) => {
     setMeeting((prev) => (prev ? withStartMinute(prev, minuteOfHour) : prev))
@@ -289,6 +299,7 @@ export function useHourbridgeState() {
     extendSelection,
     resizeSelection,
     setMeetingStart,
+    openMeeting,
     hoverHour,
     nudgeHour
   }

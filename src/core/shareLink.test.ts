@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { DateTime } from 'luxon'
 import {
   buildShareUrl,
   encodeShare,
   isShareableProtocol,
+  MAX_MEETING_TITLE_LENGTH,
   MAX_SHARED_CITIES,
+  meetingForLink,
   mergeShared,
   parseShareHash,
   replaceWithShared,
@@ -210,5 +213,84 @@ describe('isShareableProtocol', () => {
     expect(isShareableProtocol('file:')).toBe(false) // Electron
     expect(isShareableProtocol('capacitor:')).toBe(false) // iOS
     expect(isShareableProtocol('')).toBe(false)
+  })
+})
+
+describe('a meeting in a share link', () => {
+  // 9:30–10:00 AM IST on Monday 15 January 2024 (04:00–04:30 UTC).
+  const start = DateTime.fromISO('2024-01-15T04:00:00Z', { zone: 'utc' })
+  const plan = { start, end: start.plus({ minutes: 30 }) }
+  const startMinute = start.toMillis() / 60_000
+  const meetingOf = (hash: string) => {
+    const link = parseShareHash(hash)
+    return link.status === 'ready' ? link.meeting : undefined
+  }
+
+  it('round-trips the meeting with the cities: the same instant, length and title', () => {
+    const url = buildShareUrl('https://example.com/', DEFAULT_LOCATIONS, meetingForLink(plan, 'Design review 東京'))
+    const link = parseShareHash(url.slice(url.indexOf('#')))
+    expect(link.status).toBe('ready')
+    if (link.status !== 'ready') return
+    expect(link.cities).toHaveLength(DEFAULT_LOCATIONS.length)
+    expect(link.meeting!.start.toMillis()).toBe(start.toMillis())
+    expect(link.meeting!.minutes).toBe(30)
+    expect(link.meeting!.title).toBe('Design review 東京')
+  })
+
+  it('adds only the meeting to what is shared, and leaves a link without one exactly as before', () => {
+    const decode = (encoded: string) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))))
+    const withMeeting = decode(encodeShare(DEFAULT_LOCATIONS, meetingForLink(plan, 'Sync')))
+    expect(Object.keys(withMeeting).sort()).toEqual(['c', 'm', 'v'])
+    expect(withMeeting.m).toEqual([startMinute, 30, 'Sync'])
+    expect(JSON.stringify(withMeeting)).not.toMatch(/workHours|theme|timeFormat|id"/)
+    expect(encodeShare(DEFAULT_LOCATIONS, null)).toBe(encodeShare(DEFAULT_LOCATIONS))
+  })
+
+  it('leaves out an empty title, and makes a title one plain line of at most 80 characters', () => {
+    expect(meetingForLink(plan, '   ')).toEqual({ start, minutes: 30 })
+    expect(meetingForLink(plan, ' Plan\n\tthe\u0000 launch ')!.title).toBe('Plan the launch')
+    expect(meetingForLink(plan, 'x'.repeat(200))!.title).toHaveLength(MAX_MEETING_TITLE_LENGTH)
+  })
+
+  it('will not put a meeting that could not be read back into a link', () => {
+    const off = { start: start.plus({ minutes: 5 }), end: start.plus({ minutes: 35 }) }
+    expect(meetingForLink(off)).toBeNull()
+    expect(meetingForLink({ start, end: start.plus({ minutes: 20 }) })).toBeNull()
+    expect(meetingForLink({ start, end: start })).toBeNull()
+    expect(meetingForLink({ start, end: start.plus({ hours: 25 }) })).toBeNull()
+    const far = DateTime.fromISO('2101-01-01T00:00:00Z')
+    expect(meetingForLink({ start: far, end: far.plus({ minutes: 30 }) })).toBeNull()
+    expect(() => encodeShare(DEFAULT_LOCATIONS, { start: off.start, minutes: 30 })).toThrow(RangeError)
+  })
+
+  it('refuses the whole link when its meeting is malformed, rather than showing the cities alone', () => {
+    const c = [['IST', 'Asia/Kolkata', 1]]
+    const bad: unknown[] = [
+      'soon',
+      [startMinute],
+      [startMinute, 30, 'Sync', 'extra'],
+      [startMinute + 0.5, 30],
+      [startMinute + 5, 30],
+      [startMinute, 20],
+      [startMinute, 0],
+      [startMinute, 24 * 60 + 15],
+      [startMinute, 30, 42],
+      [String(startMinute), 30],
+      [Date.UTC(1999, 11, 31) / 60_000, 30],
+      [Date.UTC(2100, 0, 1) / 60_000, 30]
+    ]
+    for (const m of bad) expect(parseShareHash(hashOf({ v: 1, c, m }))).toEqual({ status: 'invalid' })
+  })
+
+  it('cleans a title it reads, and drops one with nothing left', () => {
+    const c = [['IST', 'Asia/Kolkata', 1]]
+    expect(meetingOf(hashOf({ v: 1, c, m: [startMinute, 30, '<b>Sync</b>\u0007'] }))!.title).toBe('<b>Sync</b>')
+    expect(meetingOf(hashOf({ v: 1, c, m: [startMinute, 30, ' \u0000 '] }))).toEqual({ start, minutes: 30 })
+  })
+
+  it('accepts a whole-day meeting and still reads links that carry no meeting', () => {
+    const c = [['IST', 'Asia/Kolkata', 1]]
+    expect(meetingOf(hashOf({ v: 1, c, m: [startMinute, 24 * 60] }))!.minutes).toBe(24 * 60)
+    expect(parseShareHash(hashOf({ v: 1, c }))).toEqual({ status: 'ready', cities: [{ label: 'IST', iana: 'Asia/Kolkata', isHome: true }] })
   })
 })

@@ -7,6 +7,7 @@ import {
   meetingFromRange,
   meetingPlan,
   moveMeeting,
+  placeMeeting,
   resizeMeeting,
   stepMeetingLength,
   withStartMinute,
@@ -183,5 +184,75 @@ describe('describing a length', () => {
 
   it('writes it in words for a screen reader', () => {
     expect([15, 60, 90, 120].map(describeDuration)).toEqual(['15 minutes', '1 hour', '1 hour 30 minutes', '2 hours'])
+  })
+})
+
+describe('placeMeeting', () => {
+  const at = (iso: string) => DateTime.fromISO(iso, { zone: 'utc' })
+  /** Placing and turning back into instants must give the very same meeting. */
+  const roundTrip = (iso: string, minutes: number, zone: string) => {
+    const placed = placeMeeting(at(iso), minutes, zone)
+    if (!placed) return null
+    const plan = meetingPlan(placed.meeting, buildDayTimeline(placed.date, [], zone))!
+    return { ...placed, start: plan.start.toUTC().toISO(), end: plan.end.toUTC().toISO() }
+  }
+
+  it('puts a meeting on the home date and minute it starts at (half-hour zone)', () => {
+    // 04:00 UTC on 15 Jan 2024 is 9:30 AM IST.
+    expect(roundTrip('2024-01-15T04:00:00Z', 30, 'Asia/Kolkata')).toEqual({
+      date: { year: 2024, month: 1, day: 15 },
+      meeting: { startMinute: 9 * 60 + 30, minutes: 30 },
+      start: '2024-01-15T04:00:00.000Z',
+      end: '2024-01-15T04:30:00.000Z'
+    })
+  })
+
+  it('works three quarters of an hour off UTC (Kathmandu)', () => {
+    expect(placeMeeting(at('2024-01-15T04:00:00Z'), 30, 'Asia/Kathmandu')?.meeting).toEqual({ startMinute: 9 * 60 + 45, minutes: 30 })
+  })
+
+  it('uses the home date, which can be the next day (no daylight saving: Tokyo)', () => {
+    // 4 PM UTC on the 15th is 1 AM on the 16th in Tokyo.
+    expect(placeMeeting(at('2024-01-15T16:00:00Z'), 60, 'Asia/Tokyo')).toEqual({
+      date: { year: 2024, month: 1, day: 16 },
+      meeting: { startMinute: 60, minutes: 60 }
+    })
+  })
+
+  it('takes a meeting that ends exactly at midnight, but not one that runs past it', () => {
+    // 6 PM UTC is 11:30 PM IST.
+    expect(placeMeeting(at('2024-01-15T18:00:00Z'), 30, 'Asia/Kolkata')?.meeting).toEqual({ startMinute: 23 * 60 + 30, minutes: 30 })
+    expect(placeMeeting(at('2024-01-15T18:00:00Z'), 45, 'Asia/Kolkata')).toBeNull()
+  })
+
+  it('takes the first copy of a repeated hour and refuses the second (fall-back, New York)', () => {
+    // 2 Nov 2025: 1:30 AM happens at 05:30 UTC (EDT) and again at 06:30 UTC (EST).
+    expect(roundTrip('2025-11-02T05:30:00Z', 30, 'America/New_York')).toMatchObject({
+      meeting: { startMinute: 90, minutes: 30 },
+      start: '2025-11-02T05:30:00.000Z'
+    })
+    expect(placeMeeting(at('2025-11-02T06:30:00Z'), 30, 'America/New_York')).toBeNull()
+  })
+
+  it('places a meeting across the spring-forward gap only when it comes back exactly (New York)', () => {
+    // 9 Mar 2025: 1:30 AM EST (06:30 UTC) for an hour ends at 3:30 AM EDT (07:30 UTC).
+    expect(roundTrip('2025-03-09T06:30:00Z', 60, 'America/New_York')).toMatchObject({
+      start: '2025-03-09T06:30:00.000Z',
+      end: '2025-03-09T07:30:00.000Z'
+    })
+  })
+
+  it('refuses the second copy of a repeated hour in the southern hemisphere too (Sydney)', () => {
+    // 6 Apr 2025: Sydney goes from 3 AM AEDT back to 2 AM AEST, so 2:30 AM happens at 15:30 UTC
+    // (AEDT) and again at 16:30 UTC (AEST) on the 5th.
+    expect(placeMeeting(at('2025-04-05T15:30:00Z'), 30, 'Australia/Sydney')?.meeting).toEqual({ startMinute: 150, minutes: 30 })
+    expect(placeMeeting(at('2025-04-05T16:30:00Z'), 30, 'Australia/Sydney')).toBeNull()
+  })
+
+  it('refuses a start off the quarter hour, an odd length, and an unknown zone', () => {
+    expect(placeMeeting(at('2024-01-15T04:10:00Z'), 30, 'Asia/Kolkata')).toBeNull()
+    expect(placeMeeting(at('2024-01-15T04:00:00Z'), 20, 'Asia/Kolkata')).toBeNull()
+    expect(placeMeeting(at('2024-01-15T04:00:00Z'), 0, 'Asia/Kolkata')).toBeNull()
+    expect(placeMeeting(at('2024-01-15T04:00:00Z'), 30, 'Not/A_Zone')).toBeNull()
   })
 })
