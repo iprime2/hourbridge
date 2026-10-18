@@ -410,6 +410,10 @@ html.is-mobile-ui body {
   min-height: 44px;
 }
 
+.m-planner .planner-days {
+  min-height: 44px;
+}
+
 .m-planner .planner-actions {
   flex: 1 1 100%;
   margin-left: 0;

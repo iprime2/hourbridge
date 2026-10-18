@@ -1,11 +1,14 @@
 import { DateTime } from 'luxon'
+import { MIN_MEETING_MINUTES, MINUTES_PER_DAY } from './meeting'
 import { sanitizeLocations } from './persistence'
+import type { MeetingPlan } from './share'
 import type { Location } from './timezones'
 
 /**
- * A link that carries a list of cities, so a colleague can open the same set in one click. The
- * cities travel in the URL *fragment* (after the `#`), which browsers never send to a server, and
- * only the cities are included: no working hours, theme or anything else personal.
+ * A link that carries a list of cities, so a colleague can open the same set in one click, and
+ * optionally one meeting. Everything travels in the URL *fragment* (after the `#`), which browsers
+ * never send to a server, and only the cities and the meeting are included: no working hours,
+ * theme or anything else personal.
  */
 export interface SharedLocation {
   label: string
@@ -13,14 +16,29 @@ export interface SharedLocation {
   isHome?: boolean
 }
 
+/**
+ * A proposed meeting. The start is an absolute instant, so whoever opens the link sees it in their
+ * own timezone; the length is in real minutes (what the calendar invite says).
+ */
+export interface SharedMeeting {
+  start: DateTime
+  minutes: number
+  title?: string
+}
+
 export type SharedLink =
   | { status: 'none' }
   /** There is a share link, but it cannot be read (cut off, edited, or not ours). */
   | { status: 'invalid' }
-  | { status: 'ready'; cities: SharedLocation[] }
+  | { status: 'ready'; cities: SharedLocation[]; meeting?: SharedMeeting }
 
 export const MAX_SHARED_CITIES = 30
 const MAX_LABEL_LENGTH = 40
+export const MAX_MEETING_TITLE_LENGTH = 80
+const MINUTE_MS = 60_000
+/** A shared meeting starts between 2000 and 2100: anything else was not planned in this app. */
+const EARLIEST_MINUTE = Date.UTC(2000, 0, 1) / MINUTE_MS
+const LATEST_MINUTE = Date.UTC(2100, 0, 1) / MINUTE_MS
 const MAX_FRAGMENT_LENGTH = 6000
 const FORMAT_VERSION = 1
 
@@ -57,21 +75,63 @@ export function isShareableProtocol(protocol: string): boolean {
   return protocol === 'https:' || protocol === 'http:'
 }
 
-export function encodeShare(locations: readonly Location[]): string {
+// Control characters have no business in a city name or a meeting title.
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f]/g
+
+/** A title as shared: one line, trimmed, at most 80 characters; empty when nothing is left. */
+function cleanTitle(title: string): string {
+  return title.replace(CONTROL, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_MEETING_TITLE_LENGTH)
+}
+
+/**
+ * Can this meeting travel in a link? It must start on a quarter hour (every timezone in use is a
+ * whole number of quarter hours from UTC, so it then starts on a quarter hour everywhere), last
+ * 15 minutes to a day in steps of 15, and fall between 2000 and 2100.
+ */
+function isShareable(startMinute: number, minutes: number): boolean {
+  return (
+    Number.isSafeInteger(startMinute) &&
+    startMinute >= EARLIEST_MINUTE &&
+    startMinute < LATEST_MINUTE &&
+    startMinute % 15 === 0 &&
+    Number.isInteger(minutes) &&
+    minutes >= MIN_MEETING_MINUTES &&
+    minutes <= MINUTES_PER_DAY &&
+    minutes % 15 === 0
+  )
+}
+
+/**
+ * The planned meeting as it would be shared, or null when it cannot be (see `isShareable`). The
+ * length is the real time between start and end, which is what calendars are told too.
+ */
+export function meetingForLink(plan: MeetingPlan, title = ''): SharedMeeting | null {
+  const start = plan.start.toMillis() / MINUTE_MS
+  const minutes = (plan.end.toMillis() - plan.start.toMillis()) / MINUTE_MS
+  if (!isShareable(start, minutes)) return null
+  const name = cleanTitle(title)
+  return { start: plan.start, minutes, ...(name ? { title: name } : {}) }
+}
+
+export function encodeShare(locations: readonly Location[], meeting?: SharedMeeting | null): string {
   const cities = chosen(locations).map((l) => (l.isHome ? [l.label, l.iana, 1] : [l.label, l.iana]))
-  return toBase64Url(JSON.stringify({ v: FORMAT_VERSION, c: cities }))
+  const payload: { v: number; c: unknown[]; m?: unknown[] } = { v: FORMAT_VERSION, c: cities }
+  if (meeting) {
+    const start = Math.round(meeting.start.toMillis() / MINUTE_MS)
+    if (!isShareable(start, meeting.minutes)) throw new RangeError('This meeting cannot be shared in a link')
+    const title = cleanTitle(meeting.title ?? '')
+    payload.m = title ? [start, meeting.minutes, title] : [start, meeting.minutes]
+  }
+  return toBase64Url(JSON.stringify(payload))
 }
 
 /** `base` is the page address without any fragment, e.g. `https://example.com/`. */
-export function buildShareUrl(base: string, locations: readonly Location[]): string {
-  return `${base.replace(/#.*$/, '')}#share=${encodeShare(locations)}`
+export function buildShareUrl(base: string, locations: readonly Location[], meeting?: SharedMeeting | null): string {
+  return `${base.replace(/#.*$/, '')}#share=${encodeShare(locations, meeting)}`
 }
 
 const isKnownZone = (iana: string): boolean => DateTime.now().setZone(iana).isValid
-
-// Control characters have no business in a city name.
-// eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u001f\u007f]/g
 
 function readCity(entry: unknown): SharedLocation | null {
   if (!Array.isArray(entry) || typeof entry[0] !== 'string' || typeof entry[1] !== 'string') return null
@@ -81,9 +141,22 @@ function readCity(entry: unknown): SharedLocation | null {
   return entry[2] === 1 ? { label, iana, isHome: true } : { label, iana }
 }
 
+/** `[startMinute, minutes]` or `[startMinute, minutes, title]`, all checked; null if any part is off. */
+function readMeeting(entry: unknown): SharedMeeting | null {
+  if (!Array.isArray(entry) || entry.length < 2 || entry.length > 3) return null
+  const [start, minutes, title] = entry as unknown[]
+  if (typeof start !== 'number' || typeof minutes !== 'number' || !isShareable(start, minutes)) return null
+  if (title !== undefined && typeof title !== 'string') return null
+  const name = typeof title === 'string' ? cleanTitle(title) : ''
+  const at = DateTime.fromMillis(start * MINUTE_MS, { zone: 'utc' })
+  return name ? { start: at, minutes, title: name } : { start: at, minutes }
+}
+
 /**
  * What the page's `location.hash` holds. A link is untrusted input: it is size-limited, decoded
  * defensively, and every city is checked (known timezone, short plain label) before it is shown.
+ * A meeting, when there is one, must be entirely valid, or the whole link is refused: showing the
+ * cities alone would hide that the sender meant to propose a time.
  */
 export function parseShareHash(hash: string): SharedLink {
   const match = /^#?share=(.*)$/.exec(hash)
@@ -100,7 +173,7 @@ export function parseShareHash(hash: string): SharedLink {
   } catch {
     return { status: 'invalid' }
   }
-  const record = data as { v?: unknown; c?: unknown } | null
+  const record = data as { v?: unknown; c?: unknown; m?: unknown } | null
   if (!record || record.v !== FORMAT_VERSION || !Array.isArray(record.c) || record.c.length > MAX_SHARED_CITIES) {
     return { status: 'invalid' }
   }
@@ -113,7 +186,10 @@ export function parseShareHash(hash: string): SharedLink {
     if (city.isHome) homeSeen = true
     cities.push(city)
   }
-  return cities.length > 0 ? { status: 'ready', cities } : { status: 'invalid' }
+  if (cities.length === 0) return { status: 'invalid' }
+  if (record.m === undefined) return { status: 'ready', cities }
+  const meeting = readMeeting(record.m)
+  return meeting ? { status: 'ready', cities, meeting } : { status: 'invalid' }
 }
 
 function slug(text: string, fallback: string): string {

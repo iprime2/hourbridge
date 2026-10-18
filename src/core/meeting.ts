@@ -1,6 +1,8 @@
+import type { DateTime } from 'luxon'
+import type { CalendarDay } from './holidays'
 import type { HourRange } from './planner'
 import type { MeetingPlan } from './share'
-import type { TimelineColumn } from './timeEngine'
+import { buildDayTimeline, type TimelineColumn } from './timeEngine'
 
 /**
  * The meeting being planned, in the grid's own terms: when it starts and how long it lasts, in
@@ -92,6 +94,37 @@ export function meetingPlan(meeting: Meeting, columns: readonly TimelineColumn[]
     start: first.instant.plus({ minutes: meeting.startMinute - range.start * 60 }),
     end: last.instant.plus({ minutes: meeting.startMinute + meeting.minutes - range.end * 60 })
   }
+}
+
+/** A meeting given as instants, placed on one home calendar day of the planner. */
+export interface PlacedMeeting {
+  /** The home calendar date the meeting starts on. */
+  date: CalendarDay
+  meeting: Meeting
+}
+
+/**
+ * Where a meeting given as instants (one from a share link, say) sits in the planner of
+ * `homeZone`: the home date it starts on and the planner's `{ startMinute, minutes }` for that day.
+ *
+ * Null when the planner cannot show it exactly: it does not start on a quarter hour at home, it
+ * runs past midnight there, or a daylight-saving change at home would shift it (it starts in the
+ * second copy of a repeated hour, or spans the change). The answer is checked by turning it back
+ * into instants with `meetingPlan`, so whatever is returned is the same meeting, to the minute.
+ */
+export function placeMeeting(start: DateTime, minutes: number, homeZone: string): PlacedMeeting | null {
+  const local = start.setZone(homeZone)
+  if (!local.isValid || local.second !== 0 || local.millisecond !== 0) return null
+  const startMinute = local.hour * 60 + local.minute
+  if (startMinute % 15 !== 0 || minutes < MIN_MEETING_MINUTES || minutes % 15 !== 0) return null
+  if (startMinute + minutes > MINUTES_PER_DAY) return null
+
+  const date = { year: local.year, month: local.month, day: local.day }
+  const meeting = { startMinute, minutes }
+  const plan = meetingPlan(meeting, buildDayTimeline(date, [], homeZone))
+  const end = start.toMillis() + minutes * 60_000
+  if (!plan || plan.start.toMillis() !== start.toMillis() || plan.end.toMillis() !== end) return null
+  return { date, meeting }
 }
 
 /** "15m", "45m", "1h", "1h 30m". */

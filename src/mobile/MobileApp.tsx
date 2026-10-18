@@ -10,7 +10,9 @@ import MobileGrid from '@mobile/MobileGrid'
 import Sheet from '@mobile/Sheet'
 import { hapticSelection, isNative, shareMeeting, shareTextFile, syncStatusBar } from '@mobile/native'
 import { buildTimelineForLocations } from '@core/formatters'
+import { meetingFromRange } from '@core/meeting'
 import { summarizePlanner } from '@core/planner'
+import { isShareableProtocol } from '@core/shareLink'
 import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
 import { useSharedLink } from '@core/useSharedLink'
@@ -52,6 +54,11 @@ export default function MobileApp() {
   const summary = useMemo(
     () => summarizePlanner(columns, state.locations, state.workHours),
     [columns, state.locations, state.workHours]
+  )
+  /** This page's address, when other people could open it (the web app): links are built on it. */
+  // Not inside the iOS app, whatever its page scheme: nobody else could open its address.
+  const [shareBase] = useState(() =>
+    !isNative() && isShareableProtocol(window.location.protocol) ? window.location.href.replace(/#.*$/, '') : undefined
   )
   const existingZones = useMemo(() => new Set(state.locations.map((l) => l.iana)), [state.locations])
 
@@ -157,6 +164,17 @@ export default function MobileApp() {
           shared.dismiss()
         }}
         onDismiss={shared.dismiss}
+        meetingTarget={{
+          homeZone,
+          homeLabel: state.home.label,
+          timeFormat: state.timeFormat,
+          onOpen: (cities, placed, meetingTitle) => {
+            state.applySharedCities(cities, 'add')
+            state.openMeeting(placed.date, placed.meeting)
+            setTitle(meetingTitle ?? '')
+            shared.dismiss()
+          }
+        }}
       />
 
       <main className="m-main">
@@ -192,6 +210,16 @@ export default function MobileApp() {
           calendarLinks={!isNative()}
           onClear={() => state.selectHour(null)}
           onShare={(text, ics, filename) => void onShare(text, ics, filename)}
+          shareBase={shareBase}
+          upcoming={{
+            from: state.selectedDate,
+            holidays: state.holidays,
+            now,
+            onPick: (date, range) => {
+              hapticSelection()
+              state.openMeeting(date, meetingFromRange(range))
+            }
+          }}
         />
         <UpcomingHolidays locations={state.locations} from={state.selectedDate} now={now} />
       </div>
