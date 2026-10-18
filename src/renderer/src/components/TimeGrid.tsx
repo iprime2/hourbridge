@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import type { PersonHours } from '@core/people'
 import { DateTime } from 'luxon'
 import LocationRow, { type RowReorder } from '@renderer/components/LocationRow'
 import { buildTimelineForLocations, formatTileTime } from '@core/formatters'
@@ -36,6 +37,8 @@ interface TimeGridProps {
   onRemove: (id: string) => void
   onSetHome: (id: string) => void
   onRename?: (id: string, label: string) => void
+  /** Name the person on a row and set their own hours. */
+  onSetPerson?: (id: string, person: string, hours: PersonHours | null) => void
   onMove?: (id: string, delta: number) => void
   /** Enables drag-and-drop (and ↑ ↓ on the handle): move `id` so it ends at `toIndex`. */
   onReorder?: (id: string, toIndex: number) => void
@@ -61,6 +64,7 @@ export default function TimeGrid({
   onRemove,
   onSetHome,
   onRename,
+  onSetPerson,
   onMove,
   onReorder
 }: TimeGridProps) {
@@ -307,6 +311,7 @@ export default function TimeGrid({
             onRemove={onRemove}
             onSetHome={onSetHome}
             onRename={onRename}
+            onSetPerson={onSetPerson}
             onMove={onMove}
             reorder={
               onReorder

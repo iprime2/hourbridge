@@ -14,6 +14,8 @@ import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
 import { useSharedLink } from '@core/useSharedLink'
 import { useHourbridgeState } from '@core/useHourbridgeState'
+import { ownHours } from '@core/people'
+import type { BoardControls } from '@ui/Boards'
 
 export default function App() {
   const state = useHourbridgeState()
@@ -38,6 +40,16 @@ export default function App() {
   const [shareBase] = useState(() =>
     isShareableProtocol(window.location.protocol) ? window.location.href.replace(/#.*$/, '') : undefined
   )
+
+  const boardControls: BoardControls = {
+    boards: state.boards,
+    activeBoard: state.activeBoard,
+    onSwitch: state.switchBoard,
+    onCreate: state.createBoard,
+    onRename: state.renameBoard,
+    onDelete: state.deleteBoard
+  }
+  const anyOwnHours = state.locations.some((l) => ownHours(l) !== null)
 
   const excludeIds = state.existingIds
   const existingZones = useMemo(
@@ -116,6 +128,8 @@ export default function App() {
         onSortByOffset={state.sortByOffset}
         onAddLocation={state.addLocation}
         onOpenWidget={window.hb?.openWidget ? () => void window.hb?.openWidget() : undefined}
+        boardControls={boardControls}
+        savedBoards={state.savedBoards}
       />
 
       <SharedCitiesPrompt
@@ -163,6 +177,7 @@ export default function App() {
           onRemove={state.removeLocation}
           onSetHome={state.setHome}
           onRename={state.renameLocation}
+          onSetPerson={state.setPerson}
           onMove={state.moveLocation}
           onReorder={state.reorderLocation}
         />
@@ -209,6 +224,11 @@ export default function App() {
         <span className="legend-item">
           <HolidayIcon size={12} /> Public holiday
         </span>
+        {anyOwnHours ? (
+          <span className="legend-item">
+            <span className="legend-swatch is-their-hours" /> Their own working hours
+          </span>
+        ) : null}
         <span className="legend-item legend-keys">
           <kbd className="kbd">T</kbd> today · <kbd className="kbd">[</kbd>
           <kbd className="kbd">]</kbd> change day

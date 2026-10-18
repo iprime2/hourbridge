@@ -1,4 +1,5 @@
-import { useMemo, useState, type DragEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { DateTime } from 'luxon'
 import type { Location } from '@core/timezones'
 import {
@@ -25,12 +26,15 @@ import {
   HolidayIcon,
   HomeIcon,
   IconButton,
+  PersonIcon,
   MoonIcon,
   PencilIcon,
   TrashIcon
 } from '@ui/icons'
 import { describeDstChange, getDstInfo, type DstChange } from '@core/dst'
 import { rangeContains, type HourRange } from '@core/planner'
+import { describePersonHours, inPersonHours, ownHours, shortName, type PersonHours } from '@core/people'
+import PersonEditor from '@ui/PersonEditor'
 
 /** Everything a row needs to take part in drag-and-drop reordering (owned by TimeGrid). */
 export interface RowReorder {
@@ -64,6 +68,8 @@ interface LocationRowProps {
   onRemove: (id: string) => void
   onSetHome: (id: string) => void
   onRename?: (id: string, label: string) => void
+  /** Name the person on the row and set their own hours; omit to hide the button. */
+  onSetPerson?: (id: string, person: string, hours: PersonHours | null) => void
   onMove?: (id: string, delta: number) => void
   /** Omit to render the row without a drag handle. */
   reorder?: RowReorder
@@ -94,11 +100,37 @@ export default function LocationRow({
   onRemove,
   onSetHome,
   onRename,
+  onSetPerson,
   onMove,
   reorder
 }: LocationRowProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(location.label)
+  const [personOpen, setPersonOpen] = useState(false)
+  const personRef = useRef<HTMLDivElement>(null)
+  const personButton = useRef<HTMLButtonElement>(null)
+  const hours = ownHours(location)
+  const name = shortName(location)
+
+  // The person popover closes on Escape (focus back to its button) or a click elsewhere.
+  useEffect(() => {
+    if (!personOpen) return
+    const onPointerDown = (e: MouseEvent): void => {
+      if (!personRef.current?.contains(e.target as Node)) setPersonOpen(false)
+    }
+    const onKey = (e: globalThis.KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        setPersonOpen(false)
+        personButton.current?.focus()
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [personOpen])
 
   const local = now.setZone(location.iana)
   const offsetHours = getOffsetHoursRelativeToHome(now, location.iana, homeZone)
@@ -138,7 +170,7 @@ export default function LocationRow({
         .filter(Boolean)
         .join(' ')}
       role="row"
-      aria-label={`${location.label} timezone row`}
+      aria-label={`${location.person ? `${location.person}, ` : ''}${location.label} timezone row`}
       // dragenter too: a fast pointer can enter a row before the next dragover arrives.
       onDragEnter={reorder?.onDragOver}
       onDragOver={reorder?.onDragOver}
@@ -187,8 +219,16 @@ export default function LocationRow({
               onKeyDown={onRenameKey}
             />
           ) : (
-            <span className="location-label" title={location.iana}>
-              {location.label}
+            <span
+              className="location-label"
+              title={[
+                location.person ? `${location.person}, ${location.label} (${location.iana})` : location.iana,
+                hours ? `Their working hours: ${describePersonHours(hours, timeFormat)}` : ''
+              ]
+                .filter(Boolean)
+                .join('\n')}
+            >
+              {name}
             </span>
           )}
           {location.isHome ? (
@@ -219,9 +259,22 @@ export default function LocationRow({
         </div>
 
         <div className="location-sub tabular">
+          {location.person ? (
+            <>
+              <span className="location-city" title={`${location.label} · ${formatZoneAbbr(local)}`}>
+                {location.label}
+              </span>
+              <span aria-hidden="true">·</span>
+            </>
+          ) : null}
           <span title="Offset relative to home">{offsetLabel}</span>
-          <span aria-hidden="true">·</span>
-          <span>{formatZoneAbbr(local)}</span>
+          {/* With a person's name the city takes this line, so the zone moves to its tooltip. */}
+          {location.person ? null : (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{formatZoneAbbr(local)}</span>
+            </>
+          )}
         </div>
 
         {/* Icon buttons sit on the second line, so the name and live clock stay visible on hover. */}
@@ -243,6 +296,17 @@ export default function LocationRow({
                 <ChevronDownIcon />
               </IconButton>
             </>
+          ) : null}
+          {onSetPerson ? (
+            <IconButton
+              ref={personButton}
+              label={location.person ? `Edit ${location.person} (${location.label})` : `Add a person in ${location.label}`}
+              aria-haspopup="dialog"
+              aria-expanded={personOpen}
+              onClick={() => setPersonOpen((v) => !v)}
+            >
+              <PersonIcon />
+            </IconButton>
           ) : null}
           {onRename ? (
             <IconButton
@@ -273,6 +337,36 @@ export default function LocationRow({
             </>
           ) : null}
         </div>
+        {/* In a portal: inside the sticky label cell, later rows would paint over it and the grid would clip it. */}
+        {personOpen && onSetPerson
+          ? createPortal(
+              <div className="modal-backdrop">
+                <div
+                  ref={personRef}
+                  className="modal person-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Person in ${location.label}`}
+                >
+                  <PersonEditor
+                    location={location}
+                    timeFormat={timeFormat}
+                    autoFocus
+                    onSave={(person, nextHours) => {
+                      onSetPerson(location.id, person, nextHours)
+                      setPersonOpen(false)
+                      personButton.current?.focus()
+                    }}
+                    onCancel={() => {
+                      setPersonOpen(false)
+                      personButton.current?.focus()
+                    }}
+                  />
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
 
       <div className="hour-track" role="presentation">
@@ -301,6 +395,7 @@ export default function LocationRow({
           const firstDay = columns[0]?.cells[location.iana]?.day
           const holidayNote = cell.holidays ? describeHolidays(cell.holidays) : null
           const tileNotes = [col.transition ? describeHourTransition(col.transition) : null, holidayNote].filter(Boolean)
+          const theirHours = hours !== null && inPersonHours(cell, hours)
           return (
             <button
               key={col.homeHour}
@@ -311,6 +406,7 @@ export default function LocationRow({
                 `is-${phase}`,
                 phase === 'work' && asleep ? 'is-asleep' : '',
                 holidayNote ? 'has-holiday' : '',
+                theirHours ? 'in-their-hours' : '',
                 isHovered || inSelection ? 'is-active' : '',
                 inSelection ? 'is-selected' : ''
               ]
@@ -321,8 +417,8 @@ export default function LocationRow({
                 location.iana,
                 timeFormat
               )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)}${
-                tileNotes.length ? `, ${tileNotes.join(', ')}` : ''
-              })`}
+                theirHours ? `, ${name}’s working hours` : ''
+              }${tileNotes.length ? `, ${tileNotes.join(', ')}` : ''})`}
               title={tileNotes.length ? tileNotes.join(' · ') : undefined}
               aria-pressed={inSelection}
               onMouseDown={(e) => {

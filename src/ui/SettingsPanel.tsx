@@ -1,7 +1,8 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { copyText, downloadTextFile } from '@ui/browser'
 import { countryName, countryOfZone, coverageGaps, HOLIDAY_DATA_SOURCE, HOLIDAY_YEARS } from '@core/holidays'
-import type { ResolvedState, ThemePreference } from '@core/persistence'
+import type { Board, ResolvedState, ThemePreference } from '@core/persistence'
+import { BoardsSettings, type BoardControls } from '@ui/Boards'
 import {
   buildSettingsFile,
   MAX_SETTINGS_FILE_CHARS,
@@ -30,6 +31,10 @@ interface SettingsPanelProps {
   onImportSettings?: (settings: ResolvedState) => void
   /** Where an exported file goes. Defaults to a browser download; iOS passes its share sheet. */
   onExportFile?: (filename: string, text: string) => void | Promise<void>
+  /** Make, rename, switch and delete boards. Without it there is no "Boards" section. */
+  boardControls?: BoardControls
+  /** Every board with its cities, so an exported file carries them all. */
+  savedBoards?: { boards: readonly Board[]; activeBoard: string }
 }
 
 interface SegmentedProps<T extends string> {
@@ -90,7 +95,9 @@ export default function SettingsPanel({
   homeLabel,
   locations,
   onImportSettings,
-  onExportFile
+  onExportFile,
+  boardControls,
+  savedBoards
 }: SettingsPanelProps) {
   const [pending, setPending] = useState<ResolvedState | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -105,7 +112,13 @@ export default function SettingsPanel({
   async function exportSettings(): Promise<void> {
     if (!locations) return
     const filename = settingsFileName()
-    const text = buildSettingsFile({ locations: [...locations], timeFormat, theme, workHours })
+    const text = buildSettingsFile({
+      locations: [...locations],
+      timeFormat,
+      theme,
+      workHours,
+      ...(savedBoards ? { boards: [...savedBoards.boards], activeBoard: savedBoards.activeBoard } : {})
+    })
     try {
       await (onExportFile ?? ((name, content) => downloadTextFile(name, content, 'application/json')))(filename, text)
       setNotice({ kind: 'ok', text: `Saved ${filename}.` })
@@ -274,6 +287,8 @@ export default function SettingsPanel({
         </div>
       ) : null}
 
+      {boardControls ? <BoardsSettings {...boardControls} /> : null}
+
       {locations && onImportSettings ? (
         <div className="settings-field">
           <span className="settings-label">Your data</span>
@@ -301,9 +316,12 @@ export default function SettingsPanel({
           {pending ? (
             <div className="settings-pending" role="group" aria-label="Import settings">
               <p>
-                Replace your cities and settings with the ones in this file? It has {pending.locations.length}{' '}
+                Replace your cities, boards and settings with the ones in this file? It has {pending.locations.length}{' '}
                 {pending.locations.length === 1 ? 'city' : 'cities'} (home: {getHomeLocation(pending.locations).label}),{' '}
                 {pending.timeFormat === '24h' ? '24-hour' : '12-hour'} time and the {THEME_LABEL[pending.theme].toLowerCase()} theme.
+                {pending.boards.length > 1
+                  ? ` It also has ${pending.boards.length - 1} more ${pending.boards.length === 2 ? 'board' : 'boards'}.`
+                  : ''}
               </p>
               <div className="settings-actions">
                 <button type="button" className="btn btn-primary" onClick={applyImport}>

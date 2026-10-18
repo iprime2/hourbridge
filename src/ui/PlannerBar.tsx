@@ -33,6 +33,7 @@ import {
 } from '@core/timeEngine'
 import { describeHolidays } from '@core/formatters'
 import type { Location } from '@core/timezones'
+import { isOutsideHoursDuring, ownHours, rowName } from '@core/people'
 
 interface PlannerBarProps {
   /** The meeting being planned (when it starts and how long it lasts), or null. */
@@ -87,14 +88,21 @@ function listNames(names: readonly string[]): string {
   return `${names.slice(0, 3).join(', ')} +${names.length - 3} more`
 }
 
+/** "asleep", "asleep or on holiday", "asleep, on holiday or outside their hours" (empty items skipped). */
+function orList(items: readonly string[]): string {
+  const kept = items.filter(Boolean)
+  if (kept.length <= 1) return kept.join('')
+  return `${kept.slice(0, -1).join(', ')} or ${kept[kept.length - 1]}`
+}
+
 /** "Tokyo (Culture Day)" — a city and what it is celebrating. */
 function cityHoliday({ location, names }: CityHolidays): string {
-  return `${location.label} (${names.join(', ')})`
+  return `${rowName(location)} (${names.join(', ')})`
 }
 
 /** "Tokyo is on a public holiday (Culture Day)." / "Tokyo (…) and Paris (…) are on a public holiday." */
 function holidaySentence(items: readonly CityHolidays[]): string {
-  if (items.length === 1) return `${items[0].location.label} is on a public holiday (${items[0].names.join(', ')}).`
+  if (items.length === 1) return `${rowName(items[0].location)} is on a public holiday (${items[0].names.join(', ')}).`
   return `${listNames(items.map(cityHoliday))} are on a public holiday.`
 }
 
@@ -145,12 +153,15 @@ export default function PlannerBar({
   }, [selection, columns, workHours])
 
   // For each city: asleep at any point of the meeting? Otherwise how it sits against your hours.
+  // Someone with their own hours is never "asleep" inside them, and is flagged when it runs outside.
   const perLocation = useMemo(() => {
     if (!plan) return []
     return locations.map((location) => {
-      const asleep = isAsleepDuring(plan, location.iana)
+      const hours = ownHours(location)
+      const outside = hours ? isOutsideHoursDuring(plan, location.iana, hours) : false
+      const asleep = (!hours || outside) && isAsleepDuring(plan, location.iana)
       const phase: HourPhase = asleep ? 'night' : insideMyHours ? 'work' : 'awake'
-      return { location, phase }
+      return { location, phase, offHours: outside && !asleep }
     })
   }, [plan, locations, insideMyHours])
 
@@ -184,7 +195,9 @@ export default function PlannerBar({
     flash((await copyText(url)) ? 'Link copied: it opens this meeting in each person’s own time' : 'Could not copy')
   }
 
-  const asleepNames = perLocation.filter((p) => p.phase === 'night').map((p) => p.location.label)
+  const asleepNames = perLocation.filter((p) => p.phase === 'night').map((p) => rowName(p.location))
+  const offHoursNames = perLocation.filter((p) => p.offHours).map((p) => rowName(p.location))
+  const anyOwnHours = locations.some((l) => ownHours(l) !== null)
   const canShorten = meeting ? resizeMeeting(meeting, -1) !== meeting : false
   const canLengthen = meeting ? resizeMeeting(meeting, 1) !== meeting : false
 
@@ -311,10 +324,10 @@ export default function PlannerBar({
           </div>
 
           <ul className="planner-people" aria-label="Meeting time for each location">
-            {perLocation.map(({ location, phase }) => (
+            {perLocation.map(({ location, phase, offHours }) => (
               <li key={location.id} className={`planner-person is-${phase}`}>
                 <span className="phase-dot" aria-hidden="true" />
-                <span className="planner-person-name">{location.label}</span>
+                <span className="planner-person-name">{rowName(location)}</span>
                 <span className="planner-person-time tabular">
                   {formatSlot(plan, location.iana, timeFormat)}
                 </span>
@@ -323,6 +336,7 @@ export default function PlannerBar({
                     <HolidayIcon /> {holidayOf(location.id).join(', ')}
                   </span>
                 ) : null}
+                {offHours ? <span className="planner-person-off">outside their hours</span> : null}
                 <span className="sr-only">
                   {PHASE_TEXT[phase]}
                   {holidayOf(location.id).length ? `, ${describeHolidays(holidayOf(location.id))}` : ''}
@@ -336,6 +350,9 @@ export default function PlannerBar({
             {asleepNames.length === 0
               ? 'everyone is awake.'
               : `${listNames(asleepNames)} ${asleepNames.length === 1 ? 'is' : 'are'} asleep.`}
+            {offHoursNames.length > 0
+              ? ` ${listNames(offHoursNames)} ${offHoursNames.length === 1 ? 'is' : 'are'} outside their working hours.`
+              : ''}
             {holidays.length > 0 ? ` ${holidaySentence(holidays)}` : ''}
             {homeIsOff ? ' At home that is a day off.' : ''}
           </p>
@@ -353,7 +370,8 @@ export default function PlannerBar({
           {sharedWindows.length > 0 ? (
             <div className="planner-suggest">
               <span className="planner-suggest-label">
-                Best times — you’re working and nobody’s asleep{holidays.length > 0 ? ' or on holiday' : ''}:
+                Best times — you’re working and nobody’s{' '}
+                {orList(['asleep', holidays.length > 0 ? 'on holiday' : '', anyOwnHours ? 'outside their hours' : ''])}:
               </span>
               {sharedWindows.map((w) => (
                 <button
@@ -370,8 +388,14 @@ export default function PlannerBar({
             <div className="planner-suggest">
               <span className="planner-suggest-label">
                 No time works for everyone. Best compromise (
-                {best.holiday
-                  ? `${availableAt(best)} of ${best.total} available, ${best.holiday} on holiday`
+                {best.holiday || best.offHours
+                  ? [
+                      `${availableAt(best)} of ${best.total} available`,
+                      best.holiday ? `${best.holiday} on holiday` : '',
+                      best.offHours ? `${best.offHours} off work` : ''
+                    ]
+                      .filter(Boolean)
+                      .join(', ')
                   : `${best.awake} of ${best.total} awake`}
                 {best.mine ? '' : ', outside your hours'}):
               </span>

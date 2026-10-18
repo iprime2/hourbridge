@@ -284,6 +284,39 @@ html.is-mobile-ui body {
   background: var(--work-bar);
 }
 
+.m-tile.in-their-hours::before {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.m-boardbar {
+  display: flex;
+  justify-content: center;
+  padding: 6px 16px 0;
+}
+
+.m-boardbar .board-switcher {
+  min-height: 44px;
+  max-width: 100%;
+}
+
+.m-person {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.m-person .day-toggle,
+.m-person .settings-select,
+.m-person .btn {
+  min-height: 44px;
+}
+
 .m-tile .tile-moon {
   position: absolute;
   top: 4px;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import SettingsPanel from '@ui/SettingsPanel'
-import type { ResolvedState, ThemePreference } from '@core/persistence'
+import type { Board, ResolvedState, ThemePreference } from '@core/persistence'
+import type { BoardControls } from '@ui/Boards'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
 
@@ -15,6 +16,8 @@ interface SettingsMenuProps {
   homeLabel?: string
   locations?: readonly Location[]
   onImportSettings?: (settings: ResolvedState) => void
+  boardControls?: BoardControls
+  savedBoards?: { boards: readonly Board[]; activeBoard: string }
 }
 
 export default function SettingsMenu(props: SettingsMenuProps) {
@@ -68,6 +71,8 @@ export default function SettingsMenu(props: SettingsMenuProps) {
             homeLabel={props.homeLabel}
             locations={props.locations}
             onImportSettings={props.onImportSettings}
+            boardControls={props.boardControls}
+            savedBoards={props.savedBoards}
             onTheme={props.onTheme}
             onTimeFormat={props.onTimeFormat}
             onWorkHours={props.onWorkHours}

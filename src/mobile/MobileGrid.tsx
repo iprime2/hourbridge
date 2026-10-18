@@ -12,6 +12,7 @@ import {
 } from '@core/formatters'
 import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { rangeContains, type HourRange } from '@core/planner'
+import { inPersonHours, ownHours, shortName } from '@core/people'
 import {
   classifyTile,
   getOffsetHoursRelativeToHome,
@@ -112,27 +113,29 @@ export default function MobileGrid({
             ? 'home'
             : formatOffsetHours(getOffsetHoursRelativeToHome(now, location.iana, homeZone))
           const firstDay = columns[0]?.cells[location.iana]?.day
+          const hours = ownHours(location)
           return (
             <div
               key={location.id}
               className={['m-row', location.isHome ? 'is-home' : ''].filter(Boolean).join(' ')}
               role="row"
-              aria-label={`${location.label} timezone row`}
+              aria-label={`${location.person ? `${location.person}, ` : ''}${location.label} timezone row`}
             >
               <button
                 type="button"
                 className="m-city"
-                aria-label={`${location.label} options`}
+                aria-label={`${location.person ? `${location.person}, ` : ''}${location.label} options`}
                 onClick={() => onOpenCity(location.id)}
               >
                 <span className="m-city-name">
-                  {location.label}
+                  {shortName(location)}
                   {location.isHome ? <span className="badge">Home</span> : null}
                 </span>
                 <span className="m-city-time tabular">
                   {formatLiveClock(now, location.iana, timeFormat)}
                 </span>
                 <span className="m-city-sub tabular">
+                  {location.person ? `${location.label} · ` : ''}
                   {offset} · {formatZoneAbbr(local)}
                   {!local.hasSame(now.setZone(homeZone), 'day')
                     ? ` · ${local.toFormat('ccc')}`
@@ -162,6 +165,7 @@ export default function MobileGrid({
                 const parts = tileTimeParts(cell.hour, cell.minute, timeFormat)
                 const holidayNote = cell.holidays ? describeHolidays(cell.holidays) : null
                 const tileNotes = [col.transition ? describeHourTransition(col.transition) : null, holidayNote].filter(Boolean)
+                const theirHours = hours !== null && inPersonHours(cell, hours)
                 return (
                   <button
                     key={col.homeHour}
@@ -171,6 +175,7 @@ export default function MobileGrid({
                       `is-${phase}`,
                       phase === 'work' && asleep ? 'is-asleep' : '',
                       holidayNote ? 'has-holiday' : '',
+                      theirHours ? 'in-their-hours' : '',
                       selected ? 'is-selected' : ''
                     ]
                       .filter(Boolean)
@@ -181,8 +186,8 @@ export default function MobileGrid({
                       location.iana,
                       timeFormat
                     )} (home hour ${col.homeHour}, ${describeTilePhase(phase, asleep)}${
-                      tileNotes.length ? `, ${tileNotes.join(', ')}` : ''
-                    })`}
+                      theirHours ? `, ${shortName(location)}’s working hours` : ''
+                    }${tileNotes.length ? `, ${tileNotes.join(', ')}` : ''})`}
                     onClick={() => onSelectHour(col.homeHour)}
                   >
                     {phase === 'work' && asleep ? (
