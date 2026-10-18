@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import { formatTime, type TimeFormat } from './timeEngine'
+import { rowName } from './people'
 import type { Location } from './timezones'
 
 export interface MeetingPlan {
@@ -31,7 +32,7 @@ export function buildInviteText(
 ): string {
   const ordered = [...locations].sort((a, b) => Number(Boolean(b.isHome)) - Number(Boolean(a.isHome)))
   const lines = ordered.map(
-    (l) => `${l.label}${l.isHome ? ' (home)' : ''}: ${formatSlot(plan, l.iana, mode)}`
+    (l) => `${rowName(l)}${l.isHome ? ' (home)' : ''}: ${formatSlot(plan, l.iana, mode)}`
   )
   return [title, ...lines].join('\n')
 }

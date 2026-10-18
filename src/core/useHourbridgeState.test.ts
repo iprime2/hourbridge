@@ -397,15 +397,18 @@ describe('bringing settings in: importSettings and applySharedCities', () => {
   })
   afterEach(() => vi.useRealTimers())
 
+  const importedCities = [
+    { id: 'la', label: 'LA', iana: 'America/Los_Angeles', isHome: true },
+    { id: 'paris', label: 'Paris', iana: 'Europe/Paris' }
+  ]
   const imported = {
-    version: 5,
-    locations: [
-      { id: 'la', label: 'LA', iana: 'America/Los_Angeles', isHome: true },
-      { id: 'paris', label: 'Paris', iana: 'Europe/Paris' }
-    ],
+    version: 6,
+    locations: importedCities,
     timeFormat: '24h' as const,
     theme: 'dark' as const,
-    workHours: { start: 8, end: 20, days: [1, 2, 3, 4], holidaysOff: false }
+    workHours: { start: 8, end: 20, days: [1, 2, 3, 4], holidaysOff: false },
+    boards: [{ id: 'main', name: 'My cities', locations: importedCities }],
+    activeBoard: 'main'
   }
 
   it('importSettings replaces the cities and every setting', () => {
@@ -485,5 +488,87 @@ describe('bringing settings in: importSettings and applySharedCities', () => {
     const before = result.current.locations
     act(() => result.current.applySharedCities([], 'replace'))
     expect(result.current.locations).toBe(before)
+  })
+})
+
+describe('useHourbridgeState: people and boards', () => {
+  beforeEach(() => localStorage.removeItem(HB_STORAGE_KEY))
+  const stored = () => JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!)
+
+  it('names the person on a row and sets their own hours, cleaned; null hours removes them', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.setPerson('london', '  Tom \n', { start: 7, end: 14, days: [1, 2, 3, 4, 5] }))
+    expect(result.current.locations.find((l) => l.id === 'london')).toEqual({
+      id: 'london',
+      label: 'London',
+      iana: 'Europe/London',
+      person: 'Tom',
+      hours: { start: 7, end: 14 }
+    })
+    expect(stored().locations.find((l: { id: string }) => l.id === 'london').person).toBe('Tom')
+    act(() => result.current.setPerson('london', '', null))
+    expect(result.current.locations.find((l) => l.id === 'london')).toEqual({ id: 'london', label: 'London', iana: 'Europe/London' })
+  })
+
+  it('starts with one board and stores nothing about boards', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    expect(result.current.boards).toEqual([{ id: 'main', name: 'My cities', cities: 5 }])
+    act(() => result.current.renameBoard('main', 'My cities')) // no change
+    expect(stored()).not.toHaveProperty('boards')
+  })
+
+  it('a new board holds only your home city, is shown, and keeps the other board’s cities', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.selectHour(10))
+    act(() => result.current.createBoard('Family'))
+    expect(result.current.activeBoard).toBe('board-2')
+    expect(result.current.locations).toEqual([{ id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true }])
+    expect(result.current.meeting).toBeNull()
+    act(() => result.current.addLocation(CITY_OPTIONS.find((c) => c.label === 'Paris')!))
+    expect(result.current.boards.map((b) => [b.name, b.cities])).toEqual([
+      ['My cities', 5],
+      ['Family', 2]
+    ])
+    act(() => result.current.switchBoard('main'))
+    expect(result.current.locations).toHaveLength(5)
+    expect(stored()).toMatchObject({ activeBoard: 'main', boards: [{ id: 'main' }, { id: 'board-2', name: 'Family' }] })
+    expect(stored().locations).toHaveLength(5)
+  })
+
+  it('a board survives a reload', () => {
+    const first = renderHook(() => useHourbridgeState())
+    act(() => first.result.current.createBoard('Client X'))
+    first.unmount()
+    const { result } = renderHook(() => useHourbridgeState())
+    expect(result.current.activeBoard).toBe('board-2')
+    expect(result.current.boards.map((b) => b.name)).toEqual(['My cities', 'Client X'])
+  })
+
+  it('renames and deletes boards, never the last one; deleting the board on screen shows its neighbour', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.createBoard(''))
+    expect(result.current.boards[1].name).toBe('Board 2')
+    act(() => result.current.renameBoard('board-2', '  Team  '))
+    act(() => result.current.renameBoard('board-2', '   ')) // ignored
+    expect(result.current.boards[1].name).toBe('Team')
+    act(() => result.current.deleteBoard('board-2'))
+    expect(result.current.activeBoard).toBe('main')
+    expect(result.current.boards).toHaveLength(1)
+    act(() => result.current.deleteBoard('main'))
+    expect(result.current.boards).toHaveLength(1)
+  })
+
+  it('stops at 20 boards', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    for (let i = 0; i < 25; i++) act(() => result.current.createBoard(`B${i}`))
+    expect(result.current.boards).toHaveLength(20)
+  })
+
+  it('a share link that replaces cities replaces only the board on screen', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.createBoard('Team'))
+    act(() => result.current.applySharedCities([{ label: 'Paris', iana: 'Europe/Paris', isHome: true }], 'replace'))
+    expect(result.current.locations.map((l) => l.label)).toEqual(['Paris'])
+    expect(result.current.boards[0].cities).toBe(5)
   })
 })

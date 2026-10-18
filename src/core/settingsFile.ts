@@ -1,11 +1,12 @@
 import { DateTime } from 'luxon'
 import {
+  boardsForStorage,
   normalizeWorkHours,
   parsePersistedState,
   PERSIST_VERSION,
+  resolveState,
   type ResolvedState
 } from './persistence'
-import { DEFAULT_WORK_HOURS } from './timeEngine'
 
 /** What the file says it is, so picking the wrong JSON file gives a clear message, not a surprise. */
 export const SETTINGS_FILE_KIND = 'hourbridge-settings'
@@ -14,7 +15,8 @@ export const SETTINGS_FILE_KIND = 'hourbridge-settings'
 export const MAX_SETTINGS_FILE_CHARS = 200_000
 export const MAX_IMPORTED_CITIES = 100
 
-export type SettingsSnapshot = Pick<ResolvedState, 'locations' | 'timeFormat' | 'theme' | 'workHours'>
+export type SettingsSnapshot = Pick<ResolvedState, 'locations' | 'timeFormat' | 'theme' | 'workHours'> &
+  Partial<Pick<ResolvedState, 'boards' | 'activeBoard'>>
 
 export function settingsFileName(now: DateTime = DateTime.now()): string {
   return `hourbridge-settings-${now.toFormat('yyyy-LL-dd')}.json`
@@ -30,7 +32,8 @@ export function buildSettingsFile(state: SettingsSnapshot, now: DateTime = DateT
       locations: state.locations,
       timeFormat: state.timeFormat,
       theme: state.theme,
-      workHours: normalizeWorkHours(state.workHours)
+      workHours: normalizeWorkHours(state.workHours),
+      ...(state.boards && state.activeBoard ? boardsForStorage(state.boards, state.activeBoard) : {})
     },
     null,
     2
@@ -66,14 +69,5 @@ export function parseSettingsFile(text: string): SettingsFileResult {
   }
   const parsed = parsePersistedState(text)
   if (!parsed) return fail('The cities or time format in this file are missing or invalid.')
-  return {
-    ok: true,
-    state: {
-      version: PERSIST_VERSION,
-      locations: parsed.locations,
-      timeFormat: parsed.timeFormat,
-      theme: parsed.theme ?? 'system',
-      workHours: parsed.workHours ?? { ...DEFAULT_WORK_HOURS }
-    }
-  }
+  return { ok: true, state: resolveState(parsed) }
 }

@@ -7,6 +7,7 @@ import {
 } from '@core/timeEngine'
 import { sameDays, sanitizeWorkDays } from '@core/workDays'
 import { DEFAULT_LOCATIONS, HOME_TIMEZONE, type Location } from '@core/timezones'
+import { cleanPersonFields } from '@core/people'
 
 export const HB_STORAGE_KEY = 'hb:state'
 
@@ -16,8 +17,11 @@ export const HB_STORAGE_KEY = 'hb:state'
  * means Monday–Friday, so v3 and earlier need no data change.
  * v5: working hours may carry `holidaysOff: false` (you work through public holidays at home).
  * Older payloads have none, which means holidays are days off, so v4 and earlier need no data change.
+ * v6: a city may carry `person` (a name) and `hours` (that person's own working hours, local), and
+ * there may be several saved boards (`boards`, `activeBoard`). All optional: absent means no name,
+ * no own hours and one board, so v5 and earlier need no data change.
  */
-export const PERSIST_VERSION = 5
+export const PERSIST_VERSION = 6
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -28,10 +32,42 @@ export interface PersistedState {
   timeFormat: TimeFormat
   theme?: ThemePreference
   workHours?: WorkHours
+  /**
+   * Every saved board, in order. The active board's cities are `locations` (so older readers see
+   * the board on screen); its entry here has no `locations`. Absent when there is only the one
+   * default board.
+   */
+  boards?: StoredBoard[]
+  /** Id of the board on screen. Stored only with `boards`. */
+  activeBoard?: string
 }
 
-/** State with every optional setting filled in. */
-export type ResolvedState = Required<PersistedState>
+/** A named list of cities you can switch to (a team, a client, family). */
+export interface Board {
+  id: string
+  name: string
+  locations: Location[]
+}
+
+/** A board as stored: the active one leaves its cities to `PersistedState.locations`. */
+export interface StoredBoard {
+  id: string
+  name: string
+  locations?: Location[]
+}
+
+export const DEFAULT_BOARD_ID = 'main'
+export const DEFAULT_BOARD_NAME = 'My cities'
+export const MAX_BOARDS = 20
+export const MAX_BOARD_NAME_LENGTH = 40
+/** The most cities a board keeps when read back (the board on screen is not limited). */
+export const MAX_BOARD_CITIES = 100
+
+/** State with every optional setting filled in; `boards` always holds every board with its cities. */
+export type ResolvedState = Required<Omit<PersistedState, 'boards' | 'activeBoard'>> & {
+  boards: Board[]
+  activeBoard: string
+}
 
 function isTimeFormat(value: unknown): value is TimeFormat {
   return value === '12h' || value === '24h'
@@ -125,11 +161,66 @@ export function sanitizeLocations(input: readonly Location[]): Location[] | null
     kept.find((l) => l.iana === HOME_TIMEZONE)?.id ??
     kept[0].id
   return kept.map((l) => {
-    const copy = { ...l }
+    const copy = cleanPersonFields(l)
     if (l.id === homeId) copy.isHome = true
     else delete copy.isHome
     return copy
   })
+}
+
+/** A board name as stored: one line, trimmed, at most 40 characters; empty when nothing is left. */
+export function cleanBoardName(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  // eslint-disable-next-line no-control-regex
+  return raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_BOARD_NAME_LENGTH)
+}
+
+function isBoardId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= MAX_BOARD_NAME_LENGTH
+}
+
+/**
+ * Read the saved boards. A board whose cities do not parse is dropped on its own; the active
+ * board always exists (with `locations`), even when `boards` is missing or garbled.
+ */
+function parseBoards(raw: unknown, activeRaw: unknown, locations: Location[]): { boards: Board[]; activeBoard: string } {
+  const activeId = isBoardId(activeRaw) ? activeRaw : DEFAULT_BOARD_ID
+  const boards: Board[] = []
+  const seen = new Set<string>()
+  for (const entry of Array.isArray(raw) ? raw : []) {
+    if (boards.length >= MAX_BOARDS) break
+    if (!entry || typeof entry !== 'object') continue
+    const b = entry as Record<string, unknown>
+    if (!isBoardId(b.id) || seen.has(b.id)) continue
+    const name = cleanBoardName(b.name) || `Board ${boards.length + 1}`
+    if (b.id === activeId) {
+      boards.push({ id: b.id, name, locations })
+    } else {
+      if (!Array.isArray(b.locations) || b.locations.length > MAX_BOARD_CITIES || !b.locations.every(isLocation)) continue
+      const kept = sanitizeLocations(b.locations)
+      if (!kept) continue
+      boards.push({ id: b.id, name, locations: kept })
+    }
+    seen.add(b.id)
+  }
+  if (!seen.has(activeId)) {
+    if (boards.length >= MAX_BOARDS) boards.pop()
+    boards.unshift({ id: activeId, name: DEFAULT_BOARD_NAME, locations })
+  }
+  return { boards, activeBoard: activeId }
+}
+
+/**
+ * The `boards` / `activeBoard` fields to store for these boards: none at all for the single
+ * default board, so a one-board setup is stored exactly as before boards existed.
+ */
+export function boardsForStorage(boards: readonly Board[], activeBoard: string): Pick<PersistedState, 'boards' | 'activeBoard'> {
+  const only = boards.length === 1 ? boards[0] : null
+  if (only && only.id === DEFAULT_BOARD_ID && only.name === DEFAULT_BOARD_NAME) return {}
+  return {
+    boards: boards.map((b) => (b.id === activeBoard ? { id: b.id, name: b.name } : { id: b.id, name: b.name, locations: b.locations })),
+    activeBoard
+  }
 }
 
 /** Parse persisted state; returns null when missing or invalid. */
@@ -145,13 +236,15 @@ export function parsePersistedState(raw: string | null): PersistedState | null {
     if (!locations) return null
     const version = typeof record.version === 'number' ? record.version : 1
     const migrated = migrateWorkHours(record.workHours, version)
+    const { boards, activeBoard } = parseBoards(record.boards, record.activeBoard, locations)
     return {
       version: PERSIST_VERSION,
       locations,
       timeFormat: record.timeFormat,
       // v1 payloads have neither field; unknown/garbled values fall back to defaults.
       theme: isTheme(record.theme) ? record.theme : 'system',
-      workHours: isWorkHours(migrated) ? normalizeWorkHours(migrated) : { ...DEFAULT_WORK_HOURS }
+      workHours: isWorkHours(migrated) ? normalizeWorkHours(migrated) : { ...DEFAULT_WORK_HOURS },
+      ...boardsForStorage(boards, activeBoard)
     }
   } catch {
     return null
@@ -182,13 +275,23 @@ export function loadPersistedState(
 export function loadResolvedState(
   storage?: Pick<Storage, 'getItem'> | null
 ): ResolvedState {
-  const stored = loadPersistedState(storage)
+  return resolveState(loadPersistedState(storage))
+}
+
+/** Fill in every default, and expand the boards so each one carries its cities. */
+export function resolveState(stored: PersistedState | null): ResolvedState {
+  const locations = stored?.locations ?? DEFAULT_LOCATIONS.map((l) => ({ ...l }))
+  const { boards, activeBoard } = stored
+    ? parseBoards(stored.boards, stored.activeBoard, locations)
+    : { boards: [{ id: DEFAULT_BOARD_ID, name: DEFAULT_BOARD_NAME, locations }], activeBoard: DEFAULT_BOARD_ID }
   return {
     version: PERSIST_VERSION,
-    locations: stored?.locations ?? DEFAULT_LOCATIONS.map((l) => ({ ...l })),
+    locations,
     timeFormat: stored?.timeFormat ?? '12h',
     theme: stored?.theme ?? 'system',
-    workHours: stored?.workHours ?? { ...DEFAULT_WORK_HOURS }
+    workHours: stored?.workHours ?? { ...DEFAULT_WORK_HOURS },
+    boards,
+    activeBoard
   }
 }
 
