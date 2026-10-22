@@ -13,6 +13,7 @@ import {
 import { HolidayIcon, MoonIcon } from '@ui/icons'
 import { rangeContains, type HourRange } from '@core/planner'
 import { inPersonHours, ownHours, shortName } from '@core/people'
+import { daysOffAt, describeDaysOff } from '@core/daysOff'
 import {
   classifyTile,
   getOffsetHoursRelativeToHome,
@@ -163,7 +164,11 @@ export default function MobileGrid({
                 const { phase, asleep } = classifyTile(col, cell, workHours)
                 const selected = rangeContains(selection, col.homeHour)
                 const parts = tileTimeParts(cell.hour, cell.minute, timeFormat)
-                const holidayNote = cell.holidays ? describeHolidays(cell.holidays) : null
+                const ownOff = daysOffAt(col, location)
+                const holidayNote =
+                  [cell.holidays ? describeHolidays(cell.holidays) : null, ownOff.length ? describeDaysOff(ownOff) : null]
+                    .filter(Boolean)
+                    .join(', ') || null
                 const tileNotes = [col.transition ? describeHourTransition(col.transition) : null, holidayNote].filter(Boolean)
                 const theirHours = hours !== null && inPersonHours(cell, hours)
                 return (

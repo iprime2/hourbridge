@@ -283,7 +283,7 @@ describe('the whole app on a public holiday at home', () => {
 
   it('explains the pennant in the legend', () => {
     render(<App />)
-    expect(within(screen.getByRole('contentinfo', { name: 'Legend' })).getByText('Public holiday')).toBeInTheDocument()
+    expect(within(screen.getByRole('contentinfo', { name: 'Legend' })).getByText('Public holiday or day off')).toBeInTheDocument()
   })
 
   it('brings them back, and remembers the choice, when holidays are not days off', async () => {

@@ -178,6 +178,7 @@ export default function App() {
           onSetHome={state.setHome}
           onRename={state.renameLocation}
           onSetPerson={state.setPerson}
+          onSetDaysOff={state.setDaysOff}
           onMove={state.moveLocation}
           onReorder={state.reorderLocation}
         />
@@ -222,7 +223,7 @@ export default function App() {
           <MoonIcon size={12} /> Asleep during your hours
         </span>
         <span className="legend-item">
-          <HolidayIcon size={12} /> Public holiday
+          <HolidayIcon size={12} /> Public holiday or day off
         </span>
         {anyOwnHours ? (
           <span className="legend-item">
