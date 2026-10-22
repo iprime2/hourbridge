@@ -2,8 +2,9 @@ import { DateTime } from 'luxon'
 import AddLocation from '@renderer/components/AddLocation'
 import SettingsMenu from '@renderer/components/SettingsMenu'
 import Logo from '@ui/Logo'
+import { BoardSwitcher, type BoardControls } from '@ui/Boards'
 import type { CityOption } from '@core/cityOptions'
-import type { ResolvedState, ThemePreference } from '@core/persistence'
+import type { Board, ResolvedState, ThemePreference } from '@core/persistence'
 import type { TimeFormat, WorkHours } from '@core/timeEngine'
 import type { Location } from '@core/timezones'
 import type { CalendarDate } from '@core/useHourbridgeState'
@@ -35,6 +36,9 @@ interface ToolbarProps {
   onSortByOffset: () => void
   onAddLocation: (city: CityOption) => void
   onOpenWidget?: () => void
+  /** Boards: a switcher here once there are two, and their section in Settings. */
+  boardControls?: BoardControls
+  savedBoards?: { boards: readonly Board[]; activeBoard: string }
 }
 
 function formatStripLabel(date: CalendarDate, homeZone: string): string {
@@ -75,7 +79,9 @@ export default function Toolbar({
   onWorkHours,
   onSortByOffset,
   onAddLocation,
-  onOpenWidget
+  onOpenWidget,
+  boardControls,
+  savedBoards
 }: ToolbarProps) {
   const strip = stripDates(selectedDate, homeZone)
   const today = now.setZone(homeZone)
@@ -157,6 +163,7 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-actions">
+        {boardControls ? <BoardSwitcher {...boardControls} /> : null}
         <AddLocation
           excludeIds={excludeIds}
           existingZones={existingZones}
@@ -193,6 +200,8 @@ export default function Toolbar({
           onTimeFormat={onTimeFormat}
           onWorkHours={onWorkHours}
           onSortByOffset={onSortByOffset}
+          boardControls={boardControls}
+          savedBoards={savedBoards}
         />
       </div>
     </header>

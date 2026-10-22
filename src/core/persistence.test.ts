@@ -377,3 +377,76 @@ describe('persistence v5: holidays at home', () => {
     })
   })
 })
+
+describe('v6: people and saved boards', () => {
+  const home = { id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true }
+  const tom = { id: 'austin', label: 'Austin', iana: 'America/Chicago', person: 'Tom', hours: { start: 7, end: 14 } }
+  const paris = { id: 'paris', label: 'Paris', iana: 'Europe/Paris' }
+  const base = { version: 6, timeFormat: '12h', locations: [home, tom] }
+
+  it('reads a v5 payload unchanged: no names, no own hours, one board, nothing extra stored', () => {
+    const parsed = parsePersistedState(JSON.stringify({ ...base, version: 5, locations: [home, paris] }))
+    expect(parsed).not.toHaveProperty('boards')
+    expect(parsed).not.toHaveProperty('activeBoard')
+    expect(loadResolvedState({ getItem: () => JSON.stringify({ ...base, version: 5 }) })).toMatchObject({
+      boards: [{ id: 'main', name: 'My cities' }],
+      activeBoard: 'main'
+    })
+  })
+
+  it('keeps a person and their hours, and drops only the part that is garbled', () => {
+    expect(parsePersistedState(JSON.stringify(base))?.locations[1]).toEqual(tom)
+    const garbled = { ...tom, person: { name: 'x' }, hours: { start: 9, end: 30 } }
+    expect(parsePersistedState(JSON.stringify({ ...base, locations: [home, garbled] }))?.locations[1]).toEqual({
+      id: 'austin',
+      label: 'Austin',
+      iana: 'America/Chicago'
+    })
+  })
+
+  it('round-trips several boards; the active one keeps its cities in `locations`', () => {
+    const raw = {
+      ...base,
+      boards: [
+        { id: 'main', name: 'Team' },
+        { id: 'board-2', name: 'Family', locations: [home, paris] }
+      ],
+      activeBoard: 'main'
+    }
+    const resolved = loadResolvedState({ getItem: () => JSON.stringify(raw) })
+    expect(resolved.activeBoard).toBe('main')
+    expect(resolved.boards.map((b) => [b.id, b.name, b.locations.map((l) => l.id)])).toEqual([
+      ['main', 'Team', ['ist', 'austin']],
+      ['board-2', 'Family', ['ist', 'paris']]
+    ])
+    expect(parsePersistedState(JSON.stringify(raw))).toMatchObject({ boards: raw.boards, activeBoard: 'main' })
+  })
+
+  it('drops a board whose cities do not read, keeps the rest, and always has the active board', () => {
+    const raw = {
+      ...base,
+      boards: [
+        { id: 'bad', name: 'Broken', locations: [{ id: 1 }] },
+        { id: 'empty', name: 'Nowhere', locations: [{ id: 'm', label: 'Mars', iana: 'Mars/Base' }] },
+        { id: 'board-2', name: '  Family\n ', locations: [paris] },
+        { id: 'board-2', name: 'Duplicate', locations: [paris] },
+        { id: 'board-3', name: '', locations: [paris] }
+      ],
+      activeBoard: 'gone'
+    }
+    const resolved = loadResolvedState({ getItem: () => JSON.stringify(raw) })
+    expect(resolved.boards.map((b) => [b.id, b.name])).toEqual([
+      ['gone', 'My cities'],
+      ['board-2', 'Family'],
+      ['board-3', 'Board 2']
+    ])
+    expect(resolved.boards[0].locations).toEqual(resolved.locations)
+    expect(resolved.boards[1].locations[0]).toMatchObject({ id: 'paris', isHome: true }) // one home per board
+  })
+
+  it('stores nothing about boards while there is only the default one', () => {
+    const store = new Map<string, string>()
+    savePersistedState({ locations: [home], timeFormat: '12h' }, { setItem: (k, v) => void store.set(k, v) })
+    expect(JSON.parse(store.get(HB_STORAGE_KEY)!)).not.toHaveProperty('boards')
+  })
+})

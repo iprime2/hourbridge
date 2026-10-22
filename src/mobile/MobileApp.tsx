@@ -6,6 +6,8 @@ import PlannerBar from '@ui/PlannerBar'
 import SettingsPanel from '@ui/SettingsPanel'
 import SharedCitiesPrompt from '@ui/SharedCitiesPrompt'
 import UpcomingHolidays from '@ui/UpcomingHolidays'
+import PersonEditor from '@ui/PersonEditor'
+import { BoardSwitcher, type BoardControls } from '@ui/Boards'
 import MobileGrid from '@mobile/MobileGrid'
 import Sheet from '@mobile/Sheet'
 import { hapticSelection, isNative, shareMeeting, shareTextFile, syncStatusBar } from '@mobile/native'
@@ -17,6 +19,9 @@ import { useTheme } from '@core/theme'
 import { useNow } from '@core/useNow'
 import { useSharedLink } from '@core/useSharedLink'
 import { useHourbridgeState, type CalendarDate } from '@core/useHourbridgeState'
+import type { PersonHours } from '@core/people'
+import type { TimeFormat } from '@core/timeEngine'
+import type { Location } from '@core/timezones'
 
 type SheetState = { kind: 'add' } | { kind: 'settings' } | { kind: 'city'; id: string } | null
 
@@ -61,6 +66,17 @@ export default function MobileApp() {
     !isNative() && isShareableProtocol(window.location.protocol) ? window.location.href.replace(/#.*$/, '') : undefined
   )
   const existingZones = useMemo(() => new Set(state.locations.map((l) => l.iana)), [state.locations])
+  const boardControls: BoardControls = {
+    boards: state.boards,
+    activeBoard: state.activeBoard,
+    onSwitch: (id) => {
+      hapticSelection()
+      state.switchBoard(id)
+    },
+    onCreate: state.createBoard,
+    onRename: state.renameBoard,
+    onDelete: state.deleteBoard
+  }
 
   const { selectHour } = state
   const onSelectHour = useCallback(
@@ -120,6 +136,12 @@ export default function MobileApp() {
           </button>
         </div>
       </header>
+
+      {state.boards.length > 1 ? (
+        <div className="m-boardbar">
+          <BoardSwitcher {...boardControls} />
+        </div>
+      ) : null}
 
       <div className="m-datebar" role="group" aria-label="Comparison date">
         <button
@@ -257,6 +279,8 @@ export default function MobileApp() {
             locations={state.locations}
             onImportSettings={state.importSettings}
             onExportFile={isNative() ? (name, text) => shareTextFile(name, text, 'Hourbridge settings') : undefined}
+            boardControls={boardControls}
+            savedBoards={state.savedBoards}
             onTheme={state.setTheme}
             onTimeFormat={state.setTimeFormat}
             onWorkHours={state.setWorkHours}
@@ -271,6 +295,9 @@ export default function MobileApp() {
       {activeCity ? (
         <CitySheet
           key={activeCity.id}
+          location={activeCity}
+          timeFormat={state.timeFormat}
+          onSetPerson={(person, hours) => state.setPerson(activeCity.id, person, hours)}
           label={activeCity.label}
           isHome={Boolean(activeCity.isHome)}
           isFirst={state.locations[0]?.id === activeCity.id}
@@ -293,6 +320,9 @@ export default function MobileApp() {
 }
 
 interface CitySheetProps {
+  location: Location
+  timeFormat: TimeFormat
+  onSetPerson: (person: string, hours: PersonHours | null) => void
   label: string
   isHome: boolean
   isFirst: boolean
@@ -305,6 +335,9 @@ interface CitySheetProps {
 }
 
 function CitySheet({
+  location,
+  timeFormat,
+  onSetPerson,
   label,
   isHome,
   isFirst,
@@ -317,10 +350,26 @@ function CitySheet({
 }: CitySheetProps) {
   const [draft, setDraft] = useState(label)
   const changed = draft.trim() !== '' && draft.trim() !== label
+  const [saved, setSaved] = useState(false)
 
   return (
     <Sheet title={label} onClose={onClose}>
       <div className="m-actions">
+        <section className="m-person" aria-label="Person">
+          <PersonEditor
+            location={location}
+            timeFormat={timeFormat}
+            onSave={(person, hours) => {
+              onSetPerson(person, hours)
+              setSaved(true)
+            }}
+          />
+          {saved ? (
+            <p className="settings-notice" role="status">
+              Saved.
+            </p>
+          ) : null}
+        </section>
         <div className="m-rename">
           <input
             className="city-picker-input"

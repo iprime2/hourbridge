@@ -2,11 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DateTime } from 'luxon'
 import type { CityOption } from '@core/cityOptions'
 import {
+  boardsForStorage,
+  cleanBoardName,
   loadResolvedState,
+  MAX_BOARDS,
   savePersistedState,
+  type Board,
   type ResolvedState,
   type ThemePreference
 } from '@core/persistence'
+import { cleanPersonName, sanitizePersonHours, type PersonHours } from '@core/people'
 import {
   DEFAULT_MEETING_MINUTES,
   meetingColumns,
@@ -32,6 +37,25 @@ export interface CalendarDate {
 
 const MAX_LABEL_LENGTH = 40
 
+/** Every board, and which one is on screen; kept together so both change in one update. */
+interface BoardStore {
+  boards: Board[]
+  activeBoard: string
+}
+
+function activeOf(store: BoardStore): Board {
+  return store.boards.find((b) => b.id === store.activeBoard) ?? store.boards[0]
+}
+
+/** An id no board has yet. */
+function freshBoardId(boards: readonly Board[]): string {
+  const taken = new Set(boards.map((b) => b.id))
+  for (let n = boards.length + 1; ; n++) {
+    const id = `board-${n}`
+    if (!taken.has(id)) return id
+  }
+}
+
 function todayInZone(zone: string): CalendarDate {
   const now = DateTime.now().setZone(zone)
   return { year: now.year, month: now.month, day: now.day }
@@ -41,7 +65,17 @@ export function useHourbridgeState() {
   // Read storage exactly once; everything else derives from React state.
   const [initial] = useState(() => loadResolvedState())
 
-  const [locations, setLocations] = useState<Location[]>(initial.locations)
+  const [store, setStore] = useState<BoardStore>(() => ({ boards: initial.boards, activeBoard: initial.activeBoard }))
+  const locations = activeOf(store).locations
+  /** Change the cities of the board on screen. Returning the same array changes nothing. */
+  const setLocations = useCallback((next: Location[] | ((prev: Location[]) => Location[])) => {
+    setStore((prev) => {
+      const board = activeOf(prev)
+      const value = typeof next === 'function' ? next(board.locations) : next
+      if (value === board.locations) return prev
+      return { ...prev, boards: prev.boards.map((b) => (b.id === board.id ? { ...b, locations: value } : b)) }
+    })
+  }, [])
   const [selectedDate, setSelectedDate] = useState<CalendarDate>(() =>
     todayInZone(getHomeLocation(initial.locations).iana)
   )
@@ -56,8 +90,14 @@ export function useHourbridgeState() {
   const clickMinutes = useRef(DEFAULT_MEETING_MINUTES)
 
   useEffect(() => {
-    savePersistedState({ locations, timeFormat, theme, workHours })
-  }, [locations, timeFormat, theme, workHours])
+    savePersistedState({
+      locations: activeOf(store).locations,
+      timeFormat,
+      theme,
+      workHours,
+      ...boardsForStorage(store.boards, activeOf(store).id)
+    })
+  }, [store, timeFormat, theme, workHours])
 
   const home = useMemo(() => getHomeLocation(locations), [locations])
   /** Public holidays for the cities on screen; a new function whenever a country's data arrives. */
@@ -132,11 +172,74 @@ export function useHourbridgeState() {
     )
   }, [])
 
+  /** Name the person a row is for and set their own hours (null: none). Both are cleaned here. */
+  const setPerson = useCallback(
+    (id: string, person: string, hours: PersonHours | null) => {
+      const name = cleanPersonName(person)
+      const own = hours ? sanitizePersonHours(hours) : null
+      setLocations((prev) =>
+        prev.map((l) => {
+          if (l.id !== id) return l
+          const next: Location = { id: l.id, label: l.label, iana: l.iana, ...(l.isHome ? { isHome: true } : {}) }
+          if (name) next.person = name
+          if (own) next.hours = own
+          return next
+        })
+      )
+    },
+    [setLocations]
+  )
+
+  /* —— boards: several saved lists of cities —— */
+
+  /** Show another board. The meeting is cleared: it was planned against the other cities. */
+  const switchBoard = useCallback((id: string) => {
+    setStore((prev) => (prev.activeBoard === id || !prev.boards.some((b) => b.id === id) ? prev : { ...prev, activeBoard: id }))
+    anchor.current = null
+    setMeeting(null)
+  }, [])
+
+  /** Start a new board holding only your home city, and show it (not past `MAX_BOARDS`). */
+  const createBoard = useCallback((name: string) => {
+    setStore((prev) => {
+      if (prev.boards.length >= MAX_BOARDS) return prev
+      const home = getHomeLocation(activeOf(prev).locations)
+      const id = freshBoardId(prev.boards)
+      const board: Board = {
+        id,
+        name: cleanBoardName(name) || `Board ${prev.boards.length + 1}`,
+        locations: [{ id: home.id, label: home.label, iana: home.iana, isHome: true }]
+      }
+      return { boards: [...prev.boards, board], activeBoard: id }
+    })
+    anchor.current = null
+    setMeeting(null)
+  }, [])
+
+  const renameBoard = useCallback((id: string, name: string) => {
+    const next = cleanBoardName(name)
+    if (!next) return
+    setStore((prev) => ({ ...prev, boards: prev.boards.map((b) => (b.id === id ? { ...b, name: next } : b)) }))
+  }, [])
+
+  /** Delete a board (never the last one). Deleting the board on screen shows its neighbour. */
+  const deleteBoard = useCallback((id: string) => {
+    setStore((prev) => {
+      const index = prev.boards.findIndex((b) => b.id === id)
+      if (index === -1 || prev.boards.length === 1) return prev
+      const boards = prev.boards.filter((b) => b.id !== id)
+      const activeBoard = prev.activeBoard === id ? boards[Math.min(index, boards.length - 1)].id : prev.activeBoard
+      return { boards, activeBoard }
+    })
+    anchor.current = null
+    setMeeting(null)
+  }, [])
+
   /* —— bringing settings in from outside (both inputs were validated by their parsers) —— */
 
-  /** Replace the cities and every setting with those of an imported settings file. */
+  /** Replace the cities, boards and every setting with those of an imported settings file. */
   const importSettings = useCallback((next: ResolvedState) => {
-    setLocations(next.locations)
+    setStore({ boards: next.boards, activeBoard: next.activeBoard })
     setTimeFormat(next.timeFormat)
     setTheme(next.theme)
     setWorkHours(next.workHours)
@@ -145,19 +248,25 @@ export function useHourbridgeState() {
     setMeeting(null)
   }, [])
 
-  /** Open a shared list of cities instead of yours (`replace`) or after them (`add`). Only cities change. */
-  const applySharedCities = useCallback((shared: readonly SharedLocation[], mode: 'replace' | 'add') => {
-    if (mode === 'add') {
-      setLocations((prev) => mergeShared(prev, shared))
-      return
-    }
-    const next = replaceWithShared(shared)
-    if (!next) return
-    setLocations(next)
-    setSelectedDate(todayInZone(getHomeLocation(next).iana))
-    anchor.current = null
-    setMeeting(null)
-  }, [])
+  /**
+   * Open a shared list of cities instead of the ones on this board (`replace`) or after them
+   * (`add`). Only cities change.
+   */
+  const applySharedCities = useCallback(
+    (shared: readonly SharedLocation[], mode: 'replace' | 'add') => {
+      if (mode === 'add') {
+        setLocations((prev) => mergeShared(prev, shared))
+        return
+      }
+      const next = replaceWithShared(shared)
+      if (!next) return
+      setLocations(next)
+      setSelectedDate(todayInZone(getHomeLocation(next).iana))
+      anchor.current = null
+      setMeeting(null)
+    },
+    [setLocations]
+  )
 
   /* —— date —— */
 
@@ -265,8 +374,24 @@ export function useHourbridgeState() {
     [hoveredHour, meetingAt]
   )
 
+  /** The boards for a switcher: name and how many cities, in order. */
+  const boardList = useMemo(
+    () => store.boards.map((b) => ({ id: b.id, name: b.name, cities: b.locations.length })),
+    [store.boards]
+  )
+  const activeBoard = activeOf(store).id
+
   return {
     locations,
+    boards: boardList,
+    activeBoard,
+    /** Every board with its cities, for exporting settings. */
+    savedBoards: store,
+    switchBoard,
+    createBoard,
+    renameBoard,
+    deleteBoard,
+    setPerson,
     home,
     existingIds,
     selectedDate,

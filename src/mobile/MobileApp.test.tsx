@@ -388,3 +388,48 @@ describe('MobileApp (iOS) — links in and out', () => {
   })
 })
 
+describe('MobileApp (iOS) — people and boards', () => {
+  beforeEach(() => localStorage.removeItem(HB_STORAGE_KEY))
+  afterEach(() => cleanup())
+
+  it('names the person on a row and sets their hours from the city sheet', async () => {
+    const user = userEvent.setup()
+    render(<MobileApp />)
+    await user.click(screen.getByRole('button', { name: 'London options' }))
+    const form = screen.getByRole('form', { name: 'Person for London' })
+    await user.type(within(form).getByRole('textbox', { name: 'Person' }), 'Tom')
+    await user.click(within(form).getByRole('checkbox', { name: 'Has their own working hours' }))
+    await user.click(within(form).getByRole('button', { name: 'Saturday' }))
+    await user.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(screen.getByText('Saved.')).toHaveAttribute('role', 'status')
+    expect(screen.getByRole('button', { name: 'Tom, London options' })).toHaveTextContent('Tom')
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).locations.find((l: { id: string }) => l.id === 'london')).toMatchObject({
+      person: 'Tom',
+      hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5, 6] }
+    })
+  })
+
+  it('shows a board switcher once there are two boards, and switches with a haptic', async () => {
+    const home = { id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true }
+    localStorage.setItem(
+      HB_STORAGE_KEY,
+      JSON.stringify({
+        version: 6,
+        locations: [home],
+        timeFormat: '12h',
+        boards: [
+          { id: 'main', name: 'Me' },
+          { id: 'board-2', name: 'Team', locations: [home, { id: 'paris', label: 'Paris', iana: 'Europe/Paris' }] }
+        ],
+        activeBoard: 'main'
+      })
+    )
+    const user = userEvent.setup()
+    vi.mocked(native.hapticSelection).mockClear()
+    render(<MobileApp />)
+    expect(screen.queryByRole('button', { name: 'Paris options' })).toBeNull()
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Board' }), 'board-2')
+    expect(native.hapticSelection).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Paris options' })).toBeInTheDocument()
+  })
+})

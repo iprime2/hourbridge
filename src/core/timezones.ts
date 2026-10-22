@@ -1,3 +1,5 @@
+import type { PersonHours } from './people'
+
 /** IANA timezone id, e.g. `Asia/Kolkata`. */
 export type IanaTimezone = string
 
@@ -10,6 +12,10 @@ export interface Location {
   iana: IanaTimezone
   /** True when this row is the home / reference zone. */
   isHome?: boolean
+  /** Who this row is for ("Priya"); the label stays the city. Optional. */
+  person?: string
+  /** That person's own working hours, in this row's local time. Never on the home row. */
+  hours?: PersonHours
 }
 
 /** Default home timezone (IST). */

@@ -1,0 +1,69 @@
+/* People on rows and saved boards: shared by the desktop grid and the touch layout. */
+
+.person-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-switcher {
+  max-width: 12rem;
+  font-weight: 600;
+}
+
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.board-item.is-active {
+  background: var(--accent-soft);
+}
+
+.board-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.board-count {
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.board-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.board-rename,
+.board-new {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.board-rename .city-picker-input,
+.board-new .city-picker-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}

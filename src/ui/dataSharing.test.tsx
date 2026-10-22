@@ -171,7 +171,7 @@ describe('Your data in Settings', () => {
     const h = setup()
     await upload(user, buildSettingsFile(other))
     const preview = await screen.findByRole('group', { name: 'Import settings' })
-    expect(preview).toHaveTextContent('Replace your cities and settings with the ones in this file?')
+    expect(preview).toHaveTextContent('Replace your cities, boards and settings with the ones in this file?')
     expect(preview).toHaveTextContent('3 cities (home: Paris), 24-hour time and the dark theme.')
     expect(h.onImportSettings).not.toHaveBeenCalled()
   })

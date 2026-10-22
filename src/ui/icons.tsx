@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 
 /** 24×24 stroke icons (same visual language as the settings glyph). Decorative: aria-hidden. */
 function Svg({ children }: { children: ReactNode }) {
@@ -36,6 +36,13 @@ export const PencilIcon = () => (
   <Svg>
     <path d="M4 20h4L19 9l-4-4L4 16v4z" />
     <path d="M13.5 6.5l4 4" />
+  </Svg>
+)
+
+export const PersonIcon = () => (
+  <Svg>
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
   </Svg>
 )
 
@@ -88,6 +95,7 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   /** Accessible name and tooltip — an icon alone is not a label. */
   label: string
   danger?: boolean
+  ref?: Ref<HTMLButtonElement>
 }
 
 /** A compact icon-only button. The label is both its accessible name and its tooltip. */

@@ -41,7 +41,15 @@ describe('settings file', () => {
 
   it('round-trips everything: cities, home, format, theme, working week and holiday choice', () => {
     const result = read(buildSettingsFile(snapshot, now))
-    expect(result).toEqual({ ok: true, state: { version: PERSIST_VERSION, ...snapshot } })
+    expect(result).toEqual({
+      ok: true,
+      state: {
+        version: PERSIST_VERSION,
+        ...snapshot,
+        boards: [{ id: 'main', name: 'My cities', locations: snapshot.locations }],
+        activeBoard: 'main'
+      }
+    })
   })
 
   it('writes the working week in the stored form: defaults are left out', () => {
@@ -123,7 +131,7 @@ describe('settings file', () => {
     })
     const result = read(hostile)
     expect(result.ok).toBe(true)
-    expect(Object.keys(result.ok ? result.state : {}).sort()).toEqual(['locations', 'theme', 'timeFormat', 'version', 'workHours'])
+    expect(Object.keys(result.ok ? result.state : {}).sort()).toEqual(['activeBoard', 'boards', 'locations', 'theme', 'timeFormat', 'version', 'workHours'])
     expect(({} as Record<string, unknown>).polluted).toBeUndefined()
   })
 })

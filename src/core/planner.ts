@@ -9,6 +9,7 @@ import {
 } from './timeEngine'
 import type { DateTime } from 'luxon'
 import type { MeetingPlan } from './share'
+import { inPersonHours, ownHours } from './people'
 import { getHomeLocation, type Location } from './timezones'
 
 /** Inclusive range of home-hour columns (0–23). */
@@ -21,7 +22,10 @@ export interface HourScore {
   homeHour: number
   /** The column is inside your working hours (identical for every city). */
   mine: boolean
-  /** Cities where it is not night at this instant. */
+  /**
+   * Cities where it is not night at this instant. Someone with their own working hours counts as
+   * awake inside those hours even at night: they said they work then.
+   */
   awake: number
   total: number
   /**
@@ -29,6 +33,11 @@ export interface HourScore {
    * there is one: people on holiday are awake but not available for a meeting.
    */
   holiday?: number
+  /**
+   * Of those awake and not on holiday, the people outside their own working hours (rows that have
+   * some). Present only when there is one.
+   */
+  offHours?: number
   /** The hour does not exist that day (a daylight-saving gap in the home zone): never a candidate. */
   skipped?: true
 }
@@ -43,9 +52,12 @@ export interface PlannerSummary {
   best: HourScore | null
 }
 
-/** How many of the cities at this hour can take a meeting: awake, and not on a public holiday. */
-export function availableAt(score: Pick<HourScore, 'awake' | 'holiday'>): number {
-  return score.awake - (score.holiday ?? 0)
+/**
+ * How many of the cities at this hour can take a meeting: awake, not on a public holiday, and
+ * inside their own working hours when they have some.
+ */
+export function availableAt(score: Pick<HourScore, 'awake' | 'holiday' | 'offHours'>): number {
+  return score.awake - (score.holiday ?? 0) - (score.offHours ?? 0)
 }
 
 /** How a city's tile reads for the column (see `HourPhase`). */
@@ -105,17 +117,23 @@ function scoreColumn(
   work: WorkHours,
   homeId: string | null
 ): HourScore {
-  const awake = locations.filter((l) => !isAsleepAt(column, l))
+  const inOwnHours = (l: Location): boolean => {
+    const hours = ownHours(l)
+    const cell = column.cells[l.iana]
+    return hours !== null && cell !== undefined && inPersonHours(cell, hours)
+  }
+  const awake = locations.filter((l) => !isAsleepAt(column, l) || inOwnHours(l))
   // Your own city's holiday only takes you out of the picture when you take holidays off.
-  const onHoliday = awake.filter(
-    (l) => isHolidayAt(column, l) && !(l.id === homeId && work.holidaysOff === false)
-  ).length
+  const isOff = (l: Location): boolean => isHolidayAt(column, l) && !(l.id === homeId && work.holidaysOff === false)
+  const onHoliday = awake.filter(isOff).length
+  const offHours = awake.filter((l) => !isOff(l) && ownHours(l) !== null && !inOwnHours(l)).length
   return {
     homeHour: column.homeHour,
     mine: isWorkColumn(column, work),
     awake: awake.length,
     total: locations.length,
-    ...(onHoliday ? { holiday: onHoliday } : {})
+    ...(onHoliday ? { holiday: onHoliday } : {}),
+    ...(offHours ? { offHours } : {})
   }
 }
 
