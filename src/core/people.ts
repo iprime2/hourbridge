@@ -1,6 +1,7 @@
 import type { DateTime } from 'luxon'
 import { DEFAULT_WORK_DAYS, formatTime, isWorkDay, type TimeFormat, type TimelineCell } from './timeEngine'
 import { describeWorkDays, sameDays, sanitizeWorkDays } from './workDays'
+import { sanitizeDaysOff } from './daysOff'
 import type { Location } from './timezones'
 
 /**
@@ -42,8 +43,8 @@ export function sanitizePersonHours(raw: unknown): PersonHours | null {
 }
 
 /**
- * The extra fields of a row, cleaned: a bad name or bad hours are dropped on their own, so the
- * city itself survives. Hours on the home row are kept but ignored (see `ownHours`), so making
+ * The extra fields of a row, cleaned: a bad name, bad hours or a bad day off is dropped on its
+ * own, so the city itself survives. Hours on the home row are kept but ignored (see `ownHours`), so making
  * someone home and back again does not lose them.
  */
 export function cleanPersonFields<T extends Location>(location: T): T {
@@ -54,6 +55,9 @@ export function cleanPersonFields<T extends Location>(location: T): T {
   const hours = sanitizePersonHours(copy.hours)
   if (hours) copy.hours = hours
   else delete copy.hours
+  const daysOff = sanitizeDaysOff(copy.daysOff)
+  if (daysOff) copy.daysOff = daysOff
+  else delete copy.daysOff
   return copy
 }
 

@@ -572,3 +572,19 @@ describe('useHourbridgeState: people and boards', () => {
     expect(result.current.boards[0].cities).toBe(5)
   })
 })
+
+describe('useHourbridgeState: days off', () => {
+  beforeEach(() => localStorage.removeItem(HB_STORAGE_KEY))
+
+  it('sets a row’s days off, cleaned, keeps them when the person changes, and removes them with an empty list', () => {
+    const { result } = renderHook(() => useHourbridgeState())
+    act(() => result.current.setDaysOff('london', [{ from: '2025-10-24', to: '2025-10-20', name: 'bad' }, { from: '2025-10-20', name: ' Leave ' }]))
+    const london = () => result.current.locations.find((l) => l.id === 'london')!
+    expect(london().daysOff).toEqual([{ from: '2025-10-20', name: 'Leave' }])
+    act(() => result.current.setPerson('london', 'Tom', null))
+    expect(london()).toMatchObject({ person: 'Tom', daysOff: [{ from: '2025-10-20', name: 'Leave' }] })
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).locations.find((l: { id: string }) => l.id === 'london').daysOff).toHaveLength(1)
+    act(() => result.current.setDaysOff('london', []))
+    expect(london()).not.toHaveProperty('daysOff')
+  })
+})

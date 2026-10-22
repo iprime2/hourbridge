@@ -103,6 +103,11 @@ export interface TimelineColumn {
   transition?: HourTransition
   /** Public holidays on this date in the home country (the same for every column of the day). */
   homeHolidays?: readonly string[]
+  /**
+   * Your own days off on this home date (the home row's `daysOff`), set by
+   * `buildTimelineForLocations`. Always a day off, whatever `holidaysOff` says: you entered it.
+   */
+  homeDaysOff?: readonly string[]
   cells: Record<IanaTimezone, TimelineCell>
 }
 
@@ -321,11 +326,12 @@ export function isWorkInstant(
 
 /** Is this home-hour column inside your working hours? (`instant` is already in the home zone.) */
 export function isWorkColumn(
-  column: Pick<TimelineColumn, 'homeHour' | 'instant' | 'homeHolidays'>,
+  column: Pick<TimelineColumn, 'homeHour' | 'instant' | 'homeHolidays' | 'homeDaysOff'>,
   work: WorkHours = DEFAULT_WORK_HOURS
 ): boolean {
   return (
     !holidayIsDayOff(work, column.homeHolidays) &&
+    !column.homeDaysOff?.length &&
     isWorkDay(column.instant.weekday, work) &&
     column.homeHour >= work.start &&
     column.homeHour <= work.end
@@ -343,7 +349,7 @@ export interface TileState {
  * asleep. Both are reported so a green tile at 3 AM in Miami can still be flagged as night there.
  */
 export function classifyTile(
-  column: Pick<TimelineColumn, 'homeHour' | 'instant' | 'homeHolidays'>,
+  column: Pick<TimelineColumn, 'homeHour' | 'instant' | 'homeHolidays' | 'homeDaysOff'>,
   cell: Pick<TimelineCell, 'hour'>,
   work: WorkHours = DEFAULT_WORK_HOURS
 ): TileState {

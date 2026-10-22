@@ -12,6 +12,7 @@ import {
   type ThemePreference
 } from '@core/persistence'
 import { cleanPersonName, sanitizePersonHours, type PersonHours } from '@core/people'
+import { sanitizeDaysOff, type DayOff } from '@core/daysOff'
 import {
   DEFAULT_MEETING_MINUTES,
   meetingColumns,
@@ -180,9 +181,28 @@ export function useHourbridgeState() {
       setLocations((prev) =>
         prev.map((l) => {
           if (l.id !== id) return l
-          const next: Location = { id: l.id, label: l.label, iana: l.iana, ...(l.isHome ? { isHome: true } : {}) }
+          const next: Location = { ...l }
+          delete next.person
+          delete next.hours
           if (name) next.person = name
           if (own) next.hours = own
+          return next
+        })
+      )
+    },
+    [setLocations]
+  )
+
+  /** Replace a row's own days off with `days` (cleaned here; an empty list removes them). */
+  const setDaysOff = useCallback(
+    (id: string, days: readonly DayOff[]) => {
+      const clean = sanitizeDaysOff(days)
+      setLocations((prev) =>
+        prev.map((l) => {
+          if (l.id !== id) return l
+          const next: Location = { ...l }
+          if (clean) next.daysOff = clean
+          else delete next.daysOff
           return next
         })
       )
@@ -392,6 +412,7 @@ export function useHourbridgeState() {
     renameBoard,
     deleteBoard,
     setPerson,
+    setDaysOff,
     home,
     existingIds,
     selectedDate,

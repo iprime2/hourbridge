@@ -12,6 +12,7 @@ import type { HolidayLookup } from '@core/holidays'
 import type { Location } from '@core/timezones'
 import { DateTime } from 'luxon'
 import type { CalendarDate } from '@core/useHourbridgeState'
+import { daysOffOn } from '@core/daysOff'
 
 /** Format offset hours like -9.5 → "−9:30", 5.5 → "+5:30", 0 → "0". */
 export function formatOffsetHours(hours: number): string {
@@ -85,7 +86,11 @@ export function buildTimelineForLocations(
   const zones = locations.map((l) => l.iana)
   // Deduplicate zones for engine Record keys while preserving order for display via locations
   const uniqueZones = [...new Set(zones)]
-  return buildDayTimeline(date, uniqueZones, homeZone, holidays)
+  const columns = buildDayTimeline(date, uniqueZones, homeZone, holidays)
+  // Your own days off (the home row's), on the home date: they take your working hours away.
+  const home = locations.find((l) => l.isHome && l.iana === homeZone)
+  const off = home ? daysOffOn(home, date) : []
+  return off.length ? columns.map((c) => ({ ...c, homeDaysOff: off })) : columns
 }
 
 export function offsetForLocation(
