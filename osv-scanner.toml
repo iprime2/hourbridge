@@ -4,14 +4,47 @@
 #
 # (The previous extract-zip exceptions (GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3) went away when
 # Electron was upgraded to 41.x, which no longer depends on it.)
+# (The http-cache-semantics exception (GHSA-ch52-4w7c-c8xp) went away with its 4.3.0 fix, and the
+# sprintf-js one (GHSA-hp3w-g68c-fv3c) once the scanner stopped finding it in the lockfile.)
+
+# Electron 41.x advisories (published October 2026). Same reason for each.
 
 [[IgnoredVulns]]
-id = "GHSA-ch52-4w7c-c8xp"
-# Expires so it gets looked at again rather than hiding a regression forever.
-ignoreUntil = 2027-01-03
-reason = "http-cache-semantics <= 4.2.0 has no patched release. Dev-only transitive dependency of electron-builder (via @electron/get > got > cacheable-request), used as a client-side cache while downloading build tooling; not the shared/server cache the advisory concerns, and not shipped in any app. Remove when a fixed release exists."
+id = "GHSA-2p8c-gr87-2676"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
 
 [[IgnoredVulns]]
-id = "GHSA-hp3w-g68c-fv3c"
-ignoreUntil = 2027-01-08
-reason = "sprintf-js <= 1.1.3 (unbounded precision specifiers, denial of service) has no patched release; 1.1.3 is the latest. Dev-only transitive dependency of electron-builder (via @electron/get > global-agent > roarr), used while downloading build tooling, where roarr formats global-agent's log messages (fixed strings in its source, not user or network input); not shipped in any app. Remove when a fixed release exists."
+id = "GHSA-3qxv-5xgr-q7w9"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
+
+[[IgnoredVulns]]
+id = "GHSA-98mx-cjp9-gchm"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
+
+[[IgnoredVulns]]
+id = "GHSA-997q-gvvc-jwmx"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
+
+[[IgnoredVulns]]
+id = "GHSA-fw47-9c62-h3vw"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
+
+[[IgnoredVulns]]
+id = "GHSA-h3v5-h239-pg29"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
+
+[[IgnoredVulns]]
+id = "GHSA-jr5w-w6x2-84p9"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
+
+[[IgnoredVulns]]
+id = "GHSA-x562-297c-g43g"
+ignoreUntil = 2026-12-26
+reason = "Electron 41 is out of support and has no fixed 41.x release (fixes start in 42.11). Electron is a dev dependency used only to build the desktop apps, which are not in use: releases are paused and nothing is published. The web app and iOS app do not contain Electron. Ignored for 60 days while a move to a supported Electron major is planned; remove when that lands."
