@@ -9,6 +9,7 @@ import {
 } from './timeEngine'
 import type { DateTime } from 'luxon'
 import type { MeetingPlan } from './share'
+import { daysOffAt } from './daysOff'
 import { inPersonHours, ownHours } from './people'
 import { getHomeLocation, type Location } from './timezones'
 
@@ -29,8 +30,8 @@ export interface HourScore {
   awake: number
   total: number
   /**
-   * Of those awake, the cities where it is a public holiday (their local date). Present only when
-   * there is one: people on holiday are awake but not available for a meeting.
+   * Of those awake, the cities where it is a public holiday or one of their own days off (their
+   * local date). Present only when there is one: people on holiday are awake but not available.
    */
   holiday?: number
   /**
@@ -124,7 +125,9 @@ function scoreColumn(
   }
   const awake = locations.filter((l) => !isAsleepAt(column, l) || inOwnHours(l))
   // Your own city's holiday only takes you out of the picture when you take holidays off.
-  const isOff = (l: Location): boolean => isHolidayAt(column, l) && !(l.id === homeId && work.holidaysOff === false)
+  // Someone's own day off always counts (they entered it), wherever they are.
+  const isOff = (l: Location): boolean =>
+    (isHolidayAt(column, l) && !(l.id === homeId && work.holidaysOff === false)) || daysOffAt(column, l).length > 0
   const onHoliday = awake.filter(isOff).length
   const offHours = awake.filter((l) => !isOff(l) && ownHours(l) !== null && !inOwnHours(l)).length
   return {
@@ -196,6 +199,26 @@ export function holidaysDuring(
     for (const column of hours) {
       for (const name of column.cells[location.iana]?.holidays ?? []) names.add(name)
     }
+    if (names.size) found.push({ location, names: [...names] })
+  }
+  return found
+}
+
+/**
+ * Which rows are on one of their own days off during `range` (the whole day when null), and
+ * which ones. Like `holidaysDuring`, each row's own calendar date decides.
+ */
+export function daysOffDuring(
+  columns: readonly TimelineColumn[],
+  locations: readonly Location[],
+  range: HourRange | null
+): CityHolidays[] {
+  const hours = columns.filter((c) => range === null || rangeContains(range, c.homeHour))
+  const found: CityHolidays[] = []
+  for (const location of locations) {
+    if (!location.daysOff?.length) continue
+    const names = new Set<string>()
+    for (const column of hours) for (const name of daysOffAt(column, location)) names.add(name)
     if (names.size) found.push({ location, names: [...names] })
   }
   return found

@@ -1,3 +1,4 @@
+import type { DayOff } from './daysOff'
 import type { PersonHours } from './people'
 
 /** IANA timezone id, e.g. `Asia/Kolkata`. */
@@ -16,6 +17,8 @@ export interface Location {
   person?: string
   /** That person's own working hours, in this row's local time. Never on the home row. */
   hours?: PersonHours
+  /** Days this row is off that the public-holiday data does not know about (its own dates). */
+  daysOff?: DayOff[]
 }
 
 /** Default home timezone (IST). */

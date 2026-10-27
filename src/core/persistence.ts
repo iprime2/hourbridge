@@ -20,8 +20,10 @@ export const HB_STORAGE_KEY = 'hb:state'
  * v6: a city may carry `person` (a name) and `hours` (that person's own working hours, local), and
  * there may be several saved boards (`boards`, `activeBoard`). All optional: absent means no name,
  * no own hours and one board, so v5 and earlier need no data change.
+ * v7: a city may carry `daysOff` (its own days off, on its own dates). Absent means none, so v6
+ * and earlier need no data change.
  */
-export const PERSIST_VERSION = 6
+export const PERSIST_VERSION = 7
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 

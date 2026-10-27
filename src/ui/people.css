@@ -67,3 +67,69 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+
+.days-off {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.days-off h3 {
+  margin: 0;
+}
+
+.days-off-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.days-off-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.days-off-what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.days-off-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.days-off-dates {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.days-off-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.days-off-new .settings-row {
+  flex-wrap: wrap;
+}
+
+.days-off-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.days-off-new > .btn {
+  align-self: flex-start;
+}

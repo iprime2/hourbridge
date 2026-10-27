@@ -11,6 +11,7 @@ import {
 } from '@core/timeEngine'
 import type { HolidayLookup } from '@core/holidays'
 import { getHomeLocation, type Location } from '@core/timezones'
+import { daysOffOn } from '@core/daysOff'
 
 export interface WidgetRow {
   id: string
@@ -27,7 +28,7 @@ export interface WidgetRow {
   weekday: string
   /** True when the local calendar date differs from the home date. */
   otherDay: boolean
-  /** The public holiday there today (the first, if several); absent on an ordinary day. */
+  /** The row's own day off or the public holiday there today (the first); absent on an ordinary day. */
   holiday?: string
 }
 
@@ -41,11 +42,14 @@ export function buildWidgetRows(
 ): WidgetRow[] {
   const home = getHomeLocation(locations)
   const homeDay = getLocalWallTime(now, home.iana)
-  const inMyHours = isWorkInstant(now, home.iana, work, holidays)
+  // One of your own days off takes your hours away, like a holiday at home.
+  const inMyHours = isWorkInstant(now, home.iana, work, holidays) && daysOffOn(home, homeDay).length === 0
   return locations.map((location) => {
     const local = getLocalWallTime(now, location.iana)
     const asleep = classifyDayNight(local.hour) === 'night'
-    const holiday = holidays?.(location.iana, { year: local.year, month: local.month, day: local.day })[0]
+    const day = { year: local.year, month: local.month, day: local.day }
+    // The row's own day off first (it is what that person entered), then the public holiday.
+    const holiday = daysOffOn(location, day)[0] ?? holidays?.(location.iana, day)[0]
     return {
       id: location.id,
       label: location.label,

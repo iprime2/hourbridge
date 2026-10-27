@@ -13,6 +13,8 @@ import {
 } from '@core/holidays'
 import { getHomeLocation, type Location } from '@core/timezones'
 import { useCountryHolidays } from '@core/useHolidays'
+import { describeDayOffDates, upcomingDaysOff, type DayOff } from '@core/daysOff'
+import { rowName } from '@core/people'
 
 interface UpcomingHolidaysProps {
   locations: readonly Location[]
@@ -83,6 +85,45 @@ function CountryRow({ group, from, now, count }: { group: HolidayGroup; from: Ca
   )
 }
 
+function dayOf(iso: string): CalendarDay {
+  const [year, month, day] = iso.split('-').map(Number)
+  return { year, month, day }
+}
+
+/** One row's own days off still to come (from the day the grid shows), with how far away each is there. */
+function DaysOffRow({ location, days, now }: { location: Location; days: readonly DayOff[]; now: DateTime }) {
+  const there = now.setZone(location.iana)
+  const today: CalendarDay = { year: there.year, month: there.month, day: there.day }
+  return (
+    <li className="upcoming-row is-own">
+      <div className="upcoming-where">
+        <span className="upcoming-country">{location.person ?? location.label}</span>
+        <span className="upcoming-cities">{location.person ? `${location.label} · ` : ''}own days off</span>
+      </div>
+      <div className="upcoming-what">
+        <ul className="upcoming-days" aria-label={`Upcoming days off for ${rowName(location)}`}>
+          {days.map((day) => {
+            const start = daysBetween(today, dayOf(day.from))
+            const end = daysBetween(today, dayOf(day.to ?? day.from))
+            const away = start <= 0 && end >= 0 ? 'now' : describeDaysAway(start)
+            return (
+              <li key={`${day.from}-${day.to ?? ''}-${day.name}`} className="upcoming-day">
+                <time className="upcoming-date" dateTime={day.from}>
+                  {describeDayOffDates(day)}
+                </time>
+                <span className="upcoming-name">{day.name}</span>
+                <span className={['upcoming-away', away === 'now' || start === 0 ? 'is-today' : ''].filter(Boolean).join(' ')}>
+                  {away}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </li>
+  )
+}
+
 /**
  * The next few public holidays of every country on screen, all at once, at the bottom of both
  * layouts. Each country says plainly when it has nothing to show and why — a country the data does
@@ -93,6 +134,9 @@ export default function UpcomingHolidays({ locations, from, now, count = 3 }: Up
   const homeToday = now.setZone(home.iana)
   const isToday = daysBetween({ year: homeToday.year, month: homeToday.month, day: homeToday.day }, from) === 0
   const groups = holidayGroups(locations)
+  const own = locations
+    .map((location) => ({ location, days: upcomingDaysOff(location, from, count) }))
+    .filter((r) => r.days.length > 0)
 
   return (
     <section className="upcoming" aria-label="Upcoming public holidays">
@@ -101,6 +145,9 @@ export default function UpcomingHolidays({ locations, from, now, count = 3 }: Up
         <span className="upcoming-from">{isToday ? 'from today' : `from ${formatHolidayDate(from)}`}</span>
       </div>
       <ul className="upcoming-rows" aria-label="Upcoming holidays by country">
+        {own.map(({ location, days }) => (
+          <DaysOffRow key={`own-${location.id}`} location={location} days={days} now={now} />
+        ))}
         {groups.map((group) => (
           <CountryRow key={group.key} group={group} from={from} now={now} count={count} />
         ))}

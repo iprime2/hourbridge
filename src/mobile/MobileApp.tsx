@@ -7,6 +7,8 @@ import SettingsPanel from '@ui/SettingsPanel'
 import SharedCitiesPrompt from '@ui/SharedCitiesPrompt'
 import UpcomingHolidays from '@ui/UpcomingHolidays'
 import PersonEditor from '@ui/PersonEditor'
+import DaysOffEditor from '@ui/DaysOffEditor'
+import type { DayOff } from '@core/daysOff'
 import { BoardSwitcher, type BoardControls } from '@ui/Boards'
 import MobileGrid from '@mobile/MobileGrid'
 import Sheet from '@mobile/Sheet'
@@ -298,6 +300,7 @@ export default function MobileApp() {
           location={activeCity}
           timeFormat={state.timeFormat}
           onSetPerson={(person, hours) => state.setPerson(activeCity.id, person, hours)}
+          onSetDaysOff={(days) => state.setDaysOff(activeCity.id, days)}
           label={activeCity.label}
           isHome={Boolean(activeCity.isHome)}
           isFirst={state.locations[0]?.id === activeCity.id}
@@ -323,6 +326,7 @@ interface CitySheetProps {
   location: Location
   timeFormat: TimeFormat
   onSetPerson: (person: string, hours: PersonHours | null) => void
+  onSetDaysOff: (daysOff: DayOff[]) => void
   label: string
   isHome: boolean
   isFirst: boolean
@@ -338,6 +342,7 @@ function CitySheet({
   location,
   timeFormat,
   onSetPerson,
+  onSetDaysOff,
   label,
   isHome,
   isFirst,
@@ -369,6 +374,7 @@ function CitySheet({
               Saved.
             </p>
           ) : null}
+          <DaysOffEditor location={location} onChange={onSetDaysOff} />
         </section>
         <div className="m-rename">
           <input

@@ -35,6 +35,8 @@ import { describeDstChange, getDstInfo, type DstChange } from '@core/dst'
 import { rangeContains, type HourRange } from '@core/planner'
 import { describePersonHours, inPersonHours, ownHours, shortName, type PersonHours } from '@core/people'
 import PersonEditor from '@ui/PersonEditor'
+import DaysOffEditor from '@ui/DaysOffEditor'
+import { daysOffAt, describeDaysOff, type DayOff } from '@core/daysOff'
 
 /** Everything a row needs to take part in drag-and-drop reordering (owned by TimeGrid). */
 export interface RowReorder {
@@ -70,6 +72,8 @@ interface LocationRowProps {
   onRename?: (id: string, label: string) => void
   /** Name the person on the row and set their own hours; omit to hide the button. */
   onSetPerson?: (id: string, person: string, hours: PersonHours | null) => void
+  /** Replace the row's own days off (edited in the same dialog as the person). */
+  onSetDaysOff?: (id: string, daysOff: DayOff[]) => void
   onMove?: (id: string, delta: number) => void
   /** Omit to render the row without a drag handle. */
   reorder?: RowReorder
@@ -101,6 +105,7 @@ export default function LocationRow({
   onSetHome,
   onRename,
   onSetPerson,
+  onSetDaysOff,
   onMove,
   reorder
 }: LocationRowProps) {
@@ -362,6 +367,9 @@ export default function LocationRow({
                       personButton.current?.focus()
                     }}
                   />
+                  {onSetDaysOff ? (
+                    <DaysOffEditor location={location} onChange={(days) => onSetDaysOff(location.id, days)} />
+                  ) : null}
                 </div>
               </div>,
               document.body
@@ -393,7 +401,10 @@ export default function LocationRow({
           const { phase, asleep } = classifyTile(col, cell, workHours)
           const parts = tileTimeParts(cell.hour, cell.minute, timeFormat)
           const firstDay = columns[0]?.cells[location.iana]?.day
-          const holidayNote = cell.holidays ? describeHolidays(cell.holidays) : null
+          const ownOff = daysOffAt(col, location)
+          const holidayNote = [cell.holidays ? describeHolidays(cell.holidays) : null, ownOff.length ? describeDaysOff(ownOff) : null]
+            .filter(Boolean)
+            .join(', ') || null
           const tileNotes = [col.transition ? describeHourTransition(col.transition) : null, holidayNote].filter(Boolean)
           const theirHours = hours !== null && inPersonHours(cell, hours)
           return (

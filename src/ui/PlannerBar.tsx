@@ -13,6 +13,7 @@ import {
 } from '@core/meeting'
 import {
   availableAt,
+  daysOffDuring,
   holidaysDuring,
   isAsleepDuring,
   type CityHolidays,
@@ -34,6 +35,7 @@ import {
 import { describeHolidays } from '@core/formatters'
 import type { Location } from '@core/timezones'
 import { isOutsideHoursDuring, ownHours, rowName } from '@core/people'
+import { describeDaysOff } from '@core/daysOff'
 
 interface PlannerBarProps {
   /** The meeting being planned (when it starts and how long it lasts), or null. */
@@ -95,14 +97,25 @@ function orList(items: readonly string[]): string {
   return `${kept.slice(0, -1).join(', ')} or ${kept[kept.length - 1]}`
 }
 
-/** "Tokyo (Culture Day)" — a city and what it is celebrating. */
+/** "Tokyo", or "Tom in London" for a row with a person: the subject of a holiday or day off. */
+function whoWhere(location: Location): string {
+  return location.person ? `${location.person} in ${location.label}` : location.label
+}
+
+/** "Tokyo (Culture Day)" — a city and what it is celebrating, or "Tom in London (Leave)". */
 function cityHoliday({ location, names }: CityHolidays): string {
-  return `${rowName(location)} (${names.join(', ')})`
+  return `${whoWhere(location)} (${names.join(', ')})`
 }
 
 /** "Tokyo is on a public holiday (Culture Day)." / "Tokyo (…) and Paris (…) are on a public holiday." */
+/** "Tom in London is off (Leave)." / "Tom in London (Leave) and Paris (Strike) are off." */
+function daysOffSentence(items: readonly CityHolidays[]): string {
+  if (items.length === 1) return `${whoWhere(items[0].location)} is off (${items[0].names.join(', ')}).`
+  return `${listNames(items.map(cityHoliday))} are off.`
+}
+
 function holidaySentence(items: readonly CityHolidays[]): string {
-  if (items.length === 1) return `${rowName(items[0].location)} is on a public holiday (${items[0].names.join(', ')}).`
+  if (items.length === 1) return `${whoWhere(items[0].location)} is on a public holiday (${items[0].names.join(', ')}).`
   return `${listNames(items.map(cityHoliday))} are on a public holiday.`
 }
 
@@ -168,6 +181,9 @@ export default function PlannerBar({
   // Public holidays during the meeting, and (with nothing selected) anywhere on this date.
   const holidays = useMemo(() => holidaysDuring(columns, locations, selection), [columns, locations, selection])
   const holidayOf = (id: string): string[] => holidays.find((h) => h.location.id === id)?.names ?? []
+  // Rows' own days off (a festival the data lacks, leave), on the same terms.
+  const daysOff = useMemo(() => daysOffDuring(columns, locations, selection), [columns, locations, selection])
+  const dayOffOf = (id: string): string[] => daysOff.find((h) => h.location.id === id)?.names ?? []
   const homeIsOff =
     workHours.holidaysOff !== false && holidays.some((h) => h.location.id === locations.find((l) => l.isHome)?.id)
 
@@ -336,10 +352,16 @@ export default function PlannerBar({
                     <HolidayIcon /> {holidayOf(location.id).join(', ')}
                   </span>
                 ) : null}
+                {dayOffOf(location.id).length ? (
+                  <span className="planner-person-holiday" title={describeDaysOff(dayOffOf(location.id))}>
+                    <HolidayIcon /> {dayOffOf(location.id).join(', ')}
+                  </span>
+                ) : null}
                 {offHours ? <span className="planner-person-off">outside their hours</span> : null}
                 <span className="sr-only">
                   {PHASE_TEXT[phase]}
                   {holidayOf(location.id).length ? `, ${describeHolidays(holidayOf(location.id))}` : ''}
+                  {dayOffOf(location.id).length ? `, ${describeDaysOff(dayOffOf(location.id))}` : ''}
                 </span>
               </li>
             ))}
@@ -355,6 +377,7 @@ export default function PlannerBar({
               : ''}
             {holidays.length > 0 ? ` ${holidaySentence(holidays)}` : ''}
             {homeIsOff ? ' At home that is a day off.' : ''}
+            {daysOff.length > 0 ? ` ${daysOffSentence(daysOff)}` : ''}
           </p>
         </>
       ) : (
@@ -367,11 +390,23 @@ export default function PlannerBar({
               {homeIsOff ? ' — a day off for you' : ''}
             </span>
           ) : null}
+          {daysOff.length > 0 ? (
+            <span className="planner-holidays">
+              <HolidayIcon /> <span className="sr-only">Days off: </span>
+              {daysOff.map(cityHoliday).join(' · ')}
+            </span>
+          ) : null}
           {sharedWindows.length > 0 ? (
             <div className="planner-suggest">
               <span className="planner-suggest-label">
                 Best times — you’re working and nobody’s{' '}
-                {orList(['asleep', holidays.length > 0 ? 'on holiday' : '', anyOwnHours ? 'outside their hours' : ''])}:
+                {orList([
+                  'asleep',
+                  holidays.length > 0 ? 'on holiday' : '',
+                  daysOff.length > 0 ? 'on a day off' : '',
+                  anyOwnHours ? 'outside their hours' : ''
+                ])}
+                :
               </span>
               {sharedWindows.map((w) => (
                 <button
@@ -391,7 +426,7 @@ export default function PlannerBar({
                 {best.holiday || best.offHours
                   ? [
                       `${availableAt(best)} of ${best.total} available`,
-                      best.holiday ? `${best.holiday} on holiday` : '',
+                      best.holiday ? `${best.holiday} ${daysOff.length > 0 ? 'off' : 'on holiday'}` : '',
                       best.offHours ? `${best.offHours} off work` : ''
                     ]
                       .filter(Boolean)

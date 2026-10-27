@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DateTime } from 'luxon'
 
@@ -431,5 +431,24 @@ describe('MobileApp (iOS) — people and boards', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Board' }), 'board-2')
     expect(native.hapticSelection).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Paris options' })).toBeInTheDocument()
+  })
+})
+
+describe('MobileApp (iOS) — days off', () => {
+  beforeEach(() => localStorage.removeItem(HB_STORAGE_KEY))
+  afterEach(() => cleanup())
+
+  it('adds a day off from the city sheet', async () => {
+    const user = userEvent.setup()
+    render(<MobileApp />)
+    await user.click(screen.getByRole('button', { name: 'London options' }))
+    const form = screen.getByRole('form', { name: 'Add a day off for London' })
+    await user.type(within(form).getByRole('textbox', { name: 'What it is' }), 'Bank strike')
+    fireEvent.change(within(form).getByLabelText('From'), { target: { value: '2030-05-02' } })
+    await user.click(within(form).getByRole('button', { name: 'Add day off' }))
+    expect(screen.getByRole('list', { name: 'Days off for London' })).toHaveTextContent('Bank strike')
+    expect(JSON.parse(localStorage.getItem(HB_STORAGE_KEY)!).locations.find((l: { id: string }) => l.id === 'london').daysOff).toEqual([
+      { from: '2030-05-02', name: 'Bank strike' }
+    ])
   })
 })

@@ -450,3 +450,22 @@ describe('v6: people and saved boards', () => {
     expect(JSON.parse(store.get(HB_STORAGE_KEY)!)).not.toHaveProperty('boards')
   })
 })
+
+describe('v7: a row’s own days off', () => {
+  const home = { id: 'ist', label: 'IST', iana: 'Asia/Kolkata', isHome: true }
+  it('keeps valid days off, cleans them, and drops a garbled list without losing the city', () => {
+    const tom = { id: 'london', label: 'London', iana: 'Europe/London', daysOff: [{ from: '2025-12-24', to: '2025-12-26', name: 'Christmas' }, { from: 'x' }] }
+    expect(parsePersistedState(JSON.stringify({ version: 7, timeFormat: '12h', locations: [home, tom] }))?.locations[1]).toEqual({
+      id: 'london',
+      label: 'London',
+      iana: 'Europe/London',
+      daysOff: [{ from: '2025-12-24', to: '2025-12-26', name: 'Christmas' }]
+    })
+    const garbled = { ...tom, daysOff: 'all of December' }
+    expect(parsePersistedState(JSON.stringify({ version: 7, timeFormat: '12h', locations: [home, garbled] }))?.locations[1]).toEqual({
+      id: 'london',
+      label: 'London',
+      iana: 'Europe/London'
+    })
+  })
+})
