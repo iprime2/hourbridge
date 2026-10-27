@@ -2,6 +2,8 @@
 
 **Hourbridge** is a timezone planner. Line up any number of cities, see at a glance who is awake, at work or on a public holiday, pick a meeting time, and share it.
 
+Hourbridge is **open source**, released under the [MIT License](LICENSE): you are free to use, copy, change and share it. Issues and pull requests are welcome (see [Contributing](#contributing)).
+
 Runs in **any modern browser** (installable, works offline) and as native apps on **macOS**, **Windows** and **iOS** — all from one TypeScript codebase. The web app is the easiest way to use it: nothing to download, nothing to sign, free to host (see [Web app](#web-app)).
 
 | Platform | Shell | Package |
@@ -325,6 +327,22 @@ The iOS app is **not** published by the release workflow: App Store distribution
 - Public-holiday data generated from [date-holidays](https://github.com/commenthol/date-holidays) (code ISC; holiday data [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) © the date-holidays contributors) and the IANA tz database (public domain). This is the attribution CC BY asks for; keep it if you redistribute the data.
 - Vitest + Testing Library
 
-## Private repository notes
+## Contributing
 
-This repo is private. `GITHUB_TOKEN` with `contents: write` (set in the release workflow) is enough for Actions to create releases and upload assets. Collaborators need access to download release assets.
+Hourbridge is open source under the [MIT License](LICENSE). Bug reports, ideas and pull requests are welcome. Before opening a pull request, run the checks a contributor runs locally:
+
+```bash
+npm test && npm run lint && npm run build && npm run build:mobile && npm run build:web
+```
+
+Time math lives in `src/core` and comes with tests; the rules that are easy to break (working hours, public holidays, people and days off, untrusted settings files and share links) are listed in [`CLAUDE.md`](CLAUDE.md).
+
+The bundled public-holiday data keeps its own licence (CC BY 3.0, see [Stack](#stack)); keep that credit if you redistribute it.
+
+## License
+
+[MIT](LICENSE) © 2026 Sushil Gupta.
+
+## Repository notes
+
+`GITHUB_TOKEN` with `contents: write` (set in the release workflow) is enough for Actions to create releases and upload assets. While the repository is private, only collaborators can see the source and download release assets.
